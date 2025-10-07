@@ -11,6 +11,8 @@
     "module": "nodenext",
     "strictNullChecks": true,
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "types": ["node"],
+    "skipLibCheck": true
   }
 }

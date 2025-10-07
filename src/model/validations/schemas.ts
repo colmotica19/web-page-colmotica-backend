@@ -20,6 +20,13 @@ export const userSchema = z.object({
   VERIFIED: z.number().int().positive().max(1).optional().default(0),
 });
 
+export const upSchema = z.object({
+  EMAIL: z.string().email().max(255),
+  PAIS: z.string().max(255),
+  TEL: z.string().max(20),
+  NAME: z.string().max(255),
+});
+
 export const loginSchema = z.object({
   ID_USERS: z.string().uuid().optional(),
   ID_ROL: z.number().int().positive().max(99999).optional().default(10002),
@@ -67,5 +74,5 @@ export function validateNoti(obj: object) {
 }
 
 export function patchUser(obj: object) {
-  return userSchema.partial().safeParse(obj);
+  return upSchema.partial().safeParse(obj);
 }

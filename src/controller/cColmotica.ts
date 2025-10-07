@@ -28,7 +28,7 @@ export class controllerColmotica {
     router.post("/users/login", this.cpostLogin.bind(this));
     router.post("/users/verify-code", this.verifyCode.bind(this));
     router.post("/users/addMails", controllerColmotica.cpostAddMail);
-    router.patch("/users/update", controllerColmotica.cpatchUsers);
+    router.patch("/users/update/:idUser", controllerColmotica.cpatchUsers);
     router.delete("/users/delete/:idUser", controllerColmotica.cdeleteUser);
 
     return router;
@@ -146,18 +146,29 @@ export class controllerColmotica {
 
   static async cpatchUsers(req: Request, res: Response) {
     try {
+      const { idUser } = req.params;
+
+      // Validar el body con Zod
       const result = patchUser(req.body);
       if (!result.success) {
-        return res.status(422).json(JSON.parse(result.error.message));
+        return res.status(422).json({
+          success: false,
+          errors: result.error,
+        });
       }
-      console.log(result.data.ID_USERS);
-      let id: string = "";
-      const upUser = await modelColmotica.mupdateUsers(id, result.data);
-      console.log(upUser);
+
+      // Actualizar usuario
+      const upUser = await modelColmotica.mupdateUsers(idUser, result.data);
+
       if (!upUser) {
         return res.status(404).json({ message: "Usuario no encontrado..." });
       }
-      return res.json(upUser);
+
+      return res.status(200).json({
+        success: true,
+        message: "Usuario actualizado correctamente",
+        data: upUser,
+      });
     } catch (err) {
       console.error("Error en cpatchUsers:", err);
       return res.status(500).json({ error: "Error del servidor!!" });
