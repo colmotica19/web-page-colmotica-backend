@@ -27,7 +27,7 @@ export class controllerColmotica {
     router.get("/users", controllerColmotica.cgetUsers);
     router.post("/users/login", this.cpostLogin.bind(this));
     router.post("/users/verify-code", this.verifyCode.bind(this));
-    router.post("/users/addMails", controllerColmotica.cpostAddMail);
+    router.post("/users/addMails", controllerColmotica.cpostAddMailNoti);
     router.patch("/users/update/:idUser", controllerColmotica.cpatchUsers);
     router.delete("/users/delete/:idUser", controllerColmotica.cdeleteUser);
 
@@ -57,7 +57,7 @@ export class controllerColmotica {
   static async cgetUsers(req: Request, res: Response) {
     try {
       const result = await modelColmotica.mgetUsers();
-      res.status(200).json(result);
+      res.status(200).json({ success: true, result: result });
     } catch (error) {
       console.error("Error de serviror: ", error);
       res.status(500).json({ error: "Error del servidor!!" });
@@ -120,7 +120,7 @@ export class controllerColmotica {
     }
   }
 
-  static async cpostAddMail(req: Request, res: Response) {
+  static async cpostAddMailNoti(req: Request, res: Response) {
     const val = validateNoti(req.body);
     try {
       if (!val.success) {
@@ -131,11 +131,7 @@ export class controllerColmotica {
         const result = await modelColmotica.maggMail(val.data);
         res.status(201).json({
           success: true,
-          result: JSON.parse(
-            JSON.stringify(result, (_, value) =>
-              typeof value === "bigint" ? value.toString() : value
-            )
-          ),
+          result: result,
         });
       }
     } catch (error) {
@@ -182,7 +178,9 @@ export class controllerColmotica {
       if (ls === null) {
         return res.status(404).json({ message: "Usuario no encontrado..." });
       }
-      return res.status(200).json({ message: "Usuario eliminado..." });
+      return res
+        .status(200)
+        .json({ success: true, message: "Usuario eliminado..." });
     } catch (err) {
       console.error("Error en cdeleteUsers:", err);
       return res.status(500).json({ error: "Error del servidor!!" });

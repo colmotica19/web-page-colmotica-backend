@@ -3,6 +3,7 @@
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 import mariadb from "mariadb";
+import { user, userLogin, userUp, emailsNoti } from "../Interfaces/interfaces";
 
 const pool = mariadb.createPool({
   host: "192.168.0.169",
@@ -12,53 +13,6 @@ const pool = mariadb.createPool({
   database: "COLMOTICA_WEB",
   bigIntAsNumber: true,
 });
-
-export interface user {
-  ID_USERS?: string;
-  ID_ROL?: number;
-  EMAIL: string;
-  PAIS: string;
-  TEL: string;
-  NAME: string;
-  PASS_HASH: string;
-  VERIFIED?: number;
-}
-
-export interface userUp {
-  ID_USERS?: string;
-  ID_ROL?: number;
-  EMAIL?: string;
-  PAIS?: string;
-  TEL?: string;
-  NAME?: string;
-  PASS_HASH?: string;
-  VERIFIED?: number;
-}
-
-export interface userLogin {
-  ID_USERS?: string;
-  ID_ROL?: number;
-  EMAIL: string;
-  PAIS?: string;
-  TEL?: string;
-  NAME?: string;
-  PASS_HASH: string;
-  VERIFIED?: number;
-}
-
-export interface codeVerification {
-  ID_CODE?: string;
-  ID_USERS: string;
-  CONTENT: number;
-  CREATED_AT?: Date;
-  STATUS?: number;
-}
-
-export interface emailsNoti {
-  ID_EMAILS?: string;
-  ID_ROL: number;
-  EMAIL: string;
-}
 
 export class modelColmotica {
   constructor() {}
@@ -152,14 +106,8 @@ export class modelColmotica {
 
       const result = await conn.query(
         `INSERT INTO CODE_VERIFICATION (ID_CODE, ID_USERS, CONTENT, CREATED_AT, STATUS) 
-       VALUES (?, ?, ?, ?, ?)`,
-        [
-          newCode.ID_CODE,
-          newCode.ID_USERS,
-          newCode.CONTENT,
-          newCode.CREATED_AT,
-          newCode.STATUS,
-        ]
+       VALUES (?, ?, ?, NOW(), ?)`,
+        [newCode.ID_CODE, newCode.ID_USERS, newCode.CONTENT, newCode.STATUS]
       );
       console.log(result);
       return result;
@@ -174,7 +122,7 @@ export class modelColmotica {
       conn = await pool.getConnection();
       const result = await conn.query(
         `SELECT * FROM CODE_VERIFICATION 
-       WHERE ID_USERS = ? 
+       WHERE ID_USERS = ? AND STATUS = 1
        ORDER BY CREATED_AT DESC 
        LIMIT 1`,
         [idUser]
@@ -206,7 +154,7 @@ export class modelColmotica {
     try {
       conn = await pool.getConnection();
 
-      const newNoti = {
+      const newMail = {
         ID_EMAILS: randomUUID(),
         ID_ROL: 10001,
         EMAIL: input.EMAIL,
@@ -214,10 +162,12 @@ export class modelColmotica {
 
       const result = await conn.query(
         "INSERT INTO EMAILS_NOTI (ID_EMAILS, ID_ROL, EMAIL) VALUE (?,?,?)",
-        [newNoti.ID_EMAILS, newNoti.ID_ROL, newNoti.EMAIL]
+        [newMail.ID_EMAILS, newMail.ID_ROL, newMail.EMAIL]
       );
+      const mensaje = { info: result };
+      console.log(mensaje);
 
-      return result;
+      return newMail;
     } catch (error) {
       console.error("Error en maggMail: ", error);
     } finally {
@@ -282,8 +232,41 @@ export class modelColmotica {
       result = await conn.query("DELETE FROM USERS WHERE ID_USERS = ?", [
         idUser,
       ]);
+      return result;
     } catch (error) {
       console.error("Error en mDeleteuser: ", error);
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
+  static async sendNoti(email: string) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const result = await conn.query("SELECT EMAIL FROM EMAILS_NOTI");
+
+      if (email.length === 0) {
+        console.log("No hay correos registrados en EMAILS_NOTI...");
+        return;
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Error en sendNoti: ", error);
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
+  static async mdeactivateCode(idCode: string) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.query(
+        `UPDATE CODE_VERIFICATION SET STATUS = 0 WHERE ID_CODE = ?`,
+        [idCode]
+      );
     } finally {
       if (conn) conn.release();
     }

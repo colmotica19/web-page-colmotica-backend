@@ -3,7 +3,6 @@
 import express from "express";
 import { createServer } from "http";
 import cors from "cors";
-//import { router } from "./model/routes/rColmotica";
 import dotenv from "dotenv";
 import { controllerColmotica } from "./controller/cColmotica";
 import { sColmoticaService } from "./services/Colmotica/sColmotica.service";
