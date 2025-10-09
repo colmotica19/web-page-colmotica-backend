@@ -39,8 +39,8 @@ export interface codeVerification {
   STATUS?: number;
 }
 
-export interface emailsNoti {
-  ID_EMAILS?: string;
+export interface manuals {
+  ID_MANUALS?: string;
   ID_ROL: number;
-  EMAIL: string;
+  NAME: string;
 }

@@ -120,7 +120,7 @@ export class controllerColmotica {
     }
   }
 
-  static async cpostAddMailNoti(req: Request, res: Response) {
+  /*static async cpostAddMailNoti(req: Request, res: Response) {
     const val = validateNoti(req.body);
     try {
       if (!val.success) {
@@ -138,7 +138,7 @@ export class controllerColmotica {
       console.error("Error en cpostAddMail:", error);
       res.status(500).json({ error: "Error del servidor!!" });
     }
-  }
+  }*/
 
   static async cpatchUsers(req: Request, res: Response) {
     try {
