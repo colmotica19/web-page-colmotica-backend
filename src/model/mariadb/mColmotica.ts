@@ -3,7 +3,13 @@
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 import mariadb from "mariadb";
-import { user, userLogin, userUp, emailsNoti } from "../Interfaces/interfaces";
+import {
+  user,
+  userLogin,
+  userUp,
+  manuals,
+  admins,
+} from "../Interfaces/interfaces";
 
 const pool = mariadb.createPool({
   host: "192.168.0.169",
@@ -149,32 +155,6 @@ export class modelColmotica {
     }
   }
 
-  static async maggMail(input: emailsNoti) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-
-      const newMail = {
-        ID_EMAILS: randomUUID(),
-        ID_ROL: 10001,
-        EMAIL: input.EMAIL,
-      };
-
-      const result = await conn.query(
-        "INSERT INTO EMAILS_NOTI (ID_EMAILS, ID_ROL, EMAIL) VALUE (?,?,?)",
-        [newMail.ID_EMAILS, newMail.ID_ROL, newMail.EMAIL]
-      );
-      const mensaje = { info: result };
-      console.log(mensaje);
-
-      return newMail;
-    } catch (error) {
-      console.error("Error en maggMail: ", error);
-    } finally {
-      if (conn) conn.release();
-    }
-  }
-
   static async mupdateUsers(idUser: string, input: userUp) {
     let conn;
     try {
@@ -240,14 +220,17 @@ export class modelColmotica {
     }
   }
 
-  static async sendNoti(email: string) {
+  static async sendNoti() {
     let conn;
     try {
       conn = await pool.getConnection();
-      const result = await conn.query("SELECT EMAIL FROM EMAILS_NOTI");
 
-      if (email.length === 0) {
-        console.log("No hay correos registrados en EMAILS_NOTI...");
+      const result = await conn.query(
+        "SELECT EMAIL FROM USERS WHERE ID_ROL = '10001'  OR ID_ROL = '10002'"
+      );
+
+      if (result.length === 0) {
+        console.log("No hay correos registrados...");
         return;
       }
 
@@ -267,6 +250,97 @@ export class modelColmotica {
         `UPDATE CODE_VERIFICATION SET STATUS = 0 WHERE ID_CODE = ?`,
         [idCode]
       );
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
+  static async maggAdmin(input: admins) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+
+      const newAdmin = {
+        ID_USERS: randomUUID(),
+        ID_ROL: input.ID_ROL || 10002,
+        EMAIL: input.EMAIL,
+        PAIS: null,
+        TEL: null,
+        NAME: input.NAME,
+        PASS_HASH: input.PASS_HASH,
+        VERIFED: null,
+      };
+
+      const hash = await bcrypt.hash(newAdmin.PASS_HASH, 12);
+
+      const result = await conn.query(
+        "INSERT INTO USERS (ID_USERS, ID_ROL, EMAIL, PAIS, TEL, NAME, PASS_HASH, VERIFIED)VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+          newAdmin.ID_USERS,
+          newAdmin.ID_ROL,
+          newAdmin.EMAIL,
+          newAdmin.PAIS,
+          newAdmin.TEL,
+          newAdmin.NAME,
+          hash,
+          newAdmin.VERIFED,
+        ]
+      );
+
+      console.log({ result });
+
+      return newAdmin;
+    } catch (error) {
+      console.error("Error en maggAdmin: ", error);
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
+  static async mgetAdmins() {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+
+      const result = await conn.query(
+        "SELECT * FROM USERS WHERE ID_ROL = 10002"
+      );
+
+      return result;
+    } catch (error) {
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
+  static async maggManual(input: manuals) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+
+      const newManual = {
+        ID_MANUALS: randomUUID(),
+        ID_ROL: input.ID_ROL,
+        NAME: input.NAME,
+        CREATE_AT: input.CREATE_AT,
+      };
+
+      const result = await conn.query(
+        "INSERT INTO MANUALS (ID_MANUALS, ID_ROL, NAME, CREATED_AT) VALUES (?,?,?,NOW())",
+        [
+          newManual.ID_MANUALS,
+          newManual.ID_ROL,
+          newManual.NAME,
+          newManual.CREATE_AT,
+        ]
+      );
+
+      console.log({ result });
+
+      return newManual;
+    } catch (error) {
+      console.error("Error en maggManual: ", error);
     } finally {
       if (conn) conn.release();
     }

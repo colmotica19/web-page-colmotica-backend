@@ -4,8 +4,9 @@ import { Request, Response, Router } from "express";
 import {
   validateLogin,
   validateUser,
-  validateNoti,
   patchUser,
+  validateManual,
+  validateAdmin,
 } from "../model/validations/schemas";
 import { modelColmotica } from "../model/mariadb/mColmotica";
 import "dotenv/config";
@@ -15,6 +16,7 @@ import { sColmoticaService } from "../services/Colmotica/sColmotica.service";
 export class controllerColmotica {
   colmoticaService: sColmoticaService;
   mailService: sMailService;
+
   constructor(colmoticaService: sColmoticaService, mailService: sMailService) {
     this.colmoticaService = colmoticaService;
     this.mailService = mailService;
@@ -27,10 +29,11 @@ export class controllerColmotica {
     router.get("/users", controllerColmotica.cgetUsers);
     router.post("/users/login", this.cpostLogin.bind(this));
     router.post("/users/verify-code", this.verifyCode.bind(this));
-    router.post("/users/addMails", controllerColmotica.cpostAddMailNoti);
+    router.post("/users/addManual", controllerColmotica.caggManual);
     router.patch("/users/update/:idUser", controllerColmotica.cpatchUsers);
     router.delete("/users/delete/:idUser", controllerColmotica.cdeleteUser);
-
+    router.post("/users/admin", controllerColmotica.caggAdmin);
+    router.get("/users/admin", controllerColmotica.cgetAdmin);
     return router;
   }
 
@@ -120,26 +123,6 @@ export class controllerColmotica {
     }
   }
 
-  /*static async cpostAddMailNoti(req: Request, res: Response) {
-    const val = validateNoti(req.body);
-    try {
-      if (!val.success) {
-        res
-          .status(422)
-          .json({ error: "Digite los datos correctamente el correo" });
-      } else {
-        const result = await modelColmotica.maggMail(val.data);
-        res.status(201).json({
-          success: true,
-          result: result,
-        });
-      }
-    } catch (error) {
-      console.error("Error en cpostAddMail:", error);
-      res.status(500).json({ error: "Error del servidor!!" });
-    }
-  }*/
-
   static async cpatchUsers(req: Request, res: Response) {
     try {
       const { idUser } = req.params;
@@ -184,6 +167,50 @@ export class controllerColmotica {
     } catch (err) {
       console.error("Error en cdeleteUsers:", err);
       return res.status(500).json({ error: "Error del servidor!!" });
+    }
+  }
+
+  static async caggManual(req: Request, res: Response) {
+    const val = validateManual(req.body);
+
+    try {
+      if (!val.success) {
+        res.status(422).json({
+          success: false,
+          message: "Digite los campos correctamente...",
+        });
+      } else {
+        const result = await modelColmotica.maggManual(val.data);
+        res.status(201).json({ success: true, result });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Error del servidor!!  (caggManual)" });
+    }
+  }
+  static async caggAdmin(req: Request, res: Response) {
+    const val = validateAdmin(req.body);
+
+    try {
+      if (!val.success) {
+        res.status(422).json({
+          success: false,
+          message: "Digite los campos correctamente...",
+        });
+      } else {
+        const result = await modelColmotica.maggAdmin(val.data);
+        res.status(201).json({ success: true, result });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Error del servidor!!  (caggAdmin)" });
+    }
+  }
+  static async cgetAdmin(req: Request, res: Response) {
+    try {
+      const result = await modelColmotica.mgetAdmins();
+      res.status(200).json({ success: true, result: result });
+    } catch (error) {
+      console.error("Error de serviror: ", error);
+      res.status(500).json({ error: "Error del servidor!! (cgetAdmin)" });
     }
   }
 }

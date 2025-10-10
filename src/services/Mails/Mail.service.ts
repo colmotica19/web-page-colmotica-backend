@@ -54,7 +54,7 @@ export class sMailService {
   async sendMailNoti(emailUsuario: string) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     try {
-      const emailsNoti = await modelColmotica.sendNoti(emailUsuario);
+      const emailsNoti = await modelColmotica.sendNoti();
 
       if (!emailsNoti || emailsNoti.length === 0) return;
 
@@ -78,6 +78,7 @@ export class sMailService {
   }
 
   async verifyCode(idUser: string, code: string): Promise<boolean> {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const [row] = await modelColmotica.mgetLastVerificationCode(idUser);
     if (!row) return false;
 
@@ -89,9 +90,28 @@ export class sMailService {
     if (Number(row.CONTENT) !== Number(code)) return false;
 
     await modelColmotica.mverifyUser(idUser);
-
-    await modelColmotica.mverifyUser(idUser);
     await modelColmotica.mdeactivateCode(row.ID_CODE);
+    const email = await modelColmotica.sendNoti();
+
+    console.log(email);
+
+    try {
+      for (const row of email) {
+        await resend.emails.send({
+          from: `Colmotica <${process.env.MAIL_FROM}>`,
+          to: row.EMAIL,
+          subject: "Usuario verificado en Colmotica!!",
+          html: `
+            <p>Hola,</p>
+            <p>Se ha verificado un nuevo usuario en la plataforma Colmotica.</p>
+            <p><b>Correo del usuario:</b> ${row.EMAIL}</p>
+
+          `,
+        });
+      }
+    } catch (error) {
+      console.error("Error al enviar el codigo:", error);
+    }
 
     return true;
   }
