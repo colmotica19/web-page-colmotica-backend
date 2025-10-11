@@ -345,4 +345,56 @@ export class modelColmotica {
       if (conn) conn.release();
     }
   }
+
+  static async mreqManual(idManual: string, idUser: string) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const result = await conn.query(
+        "INSERT INTO MANUALS_VS_USERS (ID_MANUALS, ID_USERS, STATE, DATE_REQ, DATE_APROVED) VALUE (?,?,'PENDING',NOW(),'')",
+        [idManual, idUser]
+      );
+
+      return result;
+    } catch (error) {
+      console.error("Error en mreqManual(): ", error);
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
+  static async mapprovedManual(idManual: string, idUser: string) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const result = await conn.query(
+        "UPDATE MANUALS_VS_USERS SET STATUS = 'APROVADO', APPROVED_DATE = NOW() WHERE ID_MANUALS = ? AND ID_USERS = ?",
+        [idManual, idUser]
+      );
+      return result;
+    } catch (error) {
+      console.error("Error en mapprovedManual(): ", error);
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
+  static async mgetpendingManuals() {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const rows = await conn.query(`
+      SELECT MU.ID_USERS, MU.ID_MANUALS, U.EMAIL, M.NAME, MU.STATUS
+      FROM MANUALS_VS_USERS MU
+      JOIN USERS U ON MU.ID_USERS = U.ID
+      JOIN MANUALS M ON MU.ID_MANUALS = M.ID_MANUALS
+      WHERE MU.STATUS = 'PENDING'
+    `);
+      return rows;
+    } catch (error) {
+      console.error("Error en mgetpendingManuals(): ", error);
+    } finally {
+      if (conn) conn.release();
+    }
+  }
 }
