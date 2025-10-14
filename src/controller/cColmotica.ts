@@ -12,6 +12,7 @@ import { modelColmotica } from "../model/mariadb/mColmotica";
 import "dotenv/config";
 import { sMailService } from "../services/Mails/Mail.service";
 import { sColmoticaService } from "../services/Colmotica/sColmotica.service";
+import { fixBigInt } from "../util/utils";
 
 export class controllerColmotica {
   colmoticaService: sColmoticaService;
@@ -29,11 +30,15 @@ export class controllerColmotica {
     router.get("/users", controllerColmotica.cgetUsers);
     router.post("/users/login", this.cpostLogin.bind(this));
     router.post("/users/verify-code", this.verifyCode.bind(this));
-    router.post("/users/addManual", controllerColmotica.caggManual);
+    router.post("/users/manual", controllerColmotica.caggManual);
+    router.get("/users/manuals", controllerColmotica.cgetManuals);
     router.patch("/users/update/:idUser", controllerColmotica.cpatchUsers);
     router.delete("/users/delete/:idUser", controllerColmotica.cdeleteUser);
     router.post("/users/admin", controllerColmotica.caggAdmin);
     router.get("/users/admin", controllerColmotica.cgetAdmin);
+    router.post("/manuals/req", this.cpostManualRequest.bind(this));
+    router.patch("/manuals/aprobado", this.cpatchApproveManual.bind(this));
+
     return router;
   }
 
@@ -187,6 +192,17 @@ export class controllerColmotica {
       res.status(500).json({ error: "Error del servidor!!  (caggManual)" });
     }
   }
+
+  static async cgetManuals(req: Request, res: Response) {
+    try {
+      const result = await modelColmotica.mgetManuals();
+      res.status(200).json({ success: true, result: result });
+    } catch (error) {
+      console.error("Error de servidor: ", error);
+      res.status(500).json({ error: "Error del servidor!! (cgetManuals)" });
+    }
+  }
+
   static async caggAdmin(req: Request, res: Response) {
     const val = validateAdmin(req.body);
 
@@ -211,6 +227,42 @@ export class controllerColmotica {
     } catch (error) {
       console.error("Error de serviror: ", error);
       res.status(500).json({ error: "Error del servidor!! (cgetAdmin)" });
+    }
+  }
+
+  async cpostManualRequest(req: Request, res: Response) {
+    const { ID_MANUALS, ID_USERS } = req.body;
+    try {
+      const result = await modelColmotica.mreqManual(ID_MANUALS, ID_USERS);
+      res
+        .status(201)
+        .json({ message: "Solicitud enviada", result: fixBigInt(result) });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error al solicitar el manual" });
+    }
+  }
+
+  async cpatchApproveManual(req: Request, res: Response) {
+    const { ID_MANUALS, ID_USERS } = req.body;
+    try {
+      await this.mailService.approvedManual(ID_USERS, ID_MANUALS);
+      res.json({ message: "Manual aprobado y correo enviado" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error al aprobar el manual" });
+    }
+  }
+
+  async cgetpendingManuals(req: Request, res: Response) {
+    try {
+      const result = await modelColmotica.mgetpendingManuals();
+      res.status(200).json({ success: true, result: result });
+    } catch (error) {
+      console.error("Error de serviror: ", error);
+      res
+        .status(500)
+        .json({ error: "Error del servidor!! (cgetpendingManuals)" });
     }
   }
 }

@@ -115,4 +115,33 @@ export class sMailService {
 
     return true;
   }
+
+  async approvedManual(idUser: string, idManual: string) {
+    await modelColmotica.mapprovedManual(idManual, idUser);
+
+    const emailManual = await modelColmotica.sendNotimanual(idUser);
+
+    const [data] = await modelColmotica.mgetUserManualInfo(idManual, idUser);
+    if (!data || !emailManual) return false;
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    try {
+      await resend.emails.send({
+        from: `Colmotica <${process.env.MAIL_FROM}>`,
+        to: emailManual.EMAIL,
+        subject: `Tu manual ${data.NAME} ha sido aprobado`,
+        html: `
+        <p>Hola,</p>
+        <p>Tu solicitud del manual <b>${data.NAME}</b> ha sido aprobada.</p>
+        <p>Ya puedes accederlo desde la plataforma Colmotica.</p>
+      `,
+      });
+
+      console.log("✅ Correo enviado correctamente a:", emailManual.EMAIL);
+    } catch (error) {
+      console.error("❌ Error al enviar correo:", error);
+    }
+
+    return true;
+  }
 }
