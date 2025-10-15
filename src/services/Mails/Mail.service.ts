@@ -70,10 +70,10 @@ export class sMailService {
             <p>Por favor, verifica el registro si es necesario.</p>
           `,
         });
-        console.log(`📧 Correo enviado a: ${row.EMAIL}`);
+        console.log(`Correo enviado a: ${row.EMAIL}`);
       }
     } catch (error) {
-      console.error("❌ Error enviando correos de notificación:", error);
+      console.error("Error enviando correos de notificación:", error);
     }
   }
 
@@ -116,32 +116,58 @@ export class sMailService {
     return true;
   }
 
-  async approvedManual(idUser: string, idManual: string) {
-    await modelColmotica.mapprovedManual(idManual, idUser);
+  async approvedManual(ID: BigInt, idUser: string, idManual: string) {
+    await modelColmotica.mapprovedManual(ID, idManual, idUser);
 
     const emailManual = await modelColmotica.sendNotimanual(idUser);
 
-    const [data] = await modelColmotica.mgetUserManualInfo(idManual, idUser);
-    if (!data || !emailManual) return false;
+    const [data] = await modelColmotica.mgetUserManualInfo(idUser, idManual);
+    if (!data) return false;
 
-    const resend = new Resend(process.env.RESEND_API_KEY);
     try {
-      await resend.emails.send({
-        from: `Colmotica <${process.env.MAIL_FROM}>`,
-        to: emailManual.EMAIL,
-        subject: `Tu manual ${data.NAME} ha sido aprobado`,
-        html: `
-        <p>Hola,</p>
-        <p>Tu solicitud del manual <b>${data.NAME}</b> ha sido aprobada.</p>
-        <p>Ya puedes accederlo desde la plataforma Colmotica.</p>
-      `,
-      });
+      for (const row of emailManual) {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: `Colmotica <${process.env.MAIL_FROM}>`,
+          to: row.EMAIL,
+          subject: `Tu manual ${row.NAME} ha sido aprobado`,
+          html: `
+      <p>Hola,</p>
+      <p>Tu solicitud del manual <b>${row.NAME}</b> ha sido aprobada.</p>
+      <p>Puedes accederlo en la plataforma Colmotica.</p>
+    `,
+        });
 
-      console.log("✅ Correo enviado correctamente a:", emailManual.EMAIL);
-    } catch (error) {
-      console.error("❌ Error al enviar correo:", error);
-    }
+        console.log("Correo enviado...");
+      }
+    } catch (error) {}
+  }
 
-    return true;
+  async refusedManual(ID: BigInt, idUser: string, idManual: string) {
+    await modelColmotica.mrefusedManual(ID, idManual, idUser);
+
+    const emailManual = await modelColmotica.sendNotimanual(idUser);
+
+    const [data] = await modelColmotica.mgetUserManualInfo(idUser, idManual);
+    if (!data) return false;
+
+    try {
+      console.log({ emailManual });
+      for (const row of emailManual) {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: `Colmotica <${process.env.MAIL_FROM}>`,
+          to: row.EMAIL,
+          subject: `Tu manual ${row.NAME} ha sido rechazado`,
+          html: `
+      <p>Hola,</p>
+      <p>Tu solicitud del manual <b>${row.NAME}</b> ha sido rechazada.</p>
+      <p>Contactate con el administrador.</p>
+    `,
+        });
+
+        console.log("Correo enviado...");
+      }
+    } catch (error) {}
   }
 }

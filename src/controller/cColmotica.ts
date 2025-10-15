@@ -37,7 +37,9 @@ export class controllerColmotica {
     router.post("/users/admin", controllerColmotica.caggAdmin);
     router.get("/users/admin", controllerColmotica.cgetAdmin);
     router.post("/manuals/req", this.cpostManualRequest.bind(this));
-    router.patch("/manuals/aprobado", this.cpatchApproveManual.bind(this));
+    router.get("/manuals/req/pendiente", this.cgetpendingManuals.bind(this));
+    router.patch("/manuals/req/aprobado", this.cpatchApproveManual.bind(this));
+    router.patch("/manuals/req/rechazado", this.cpatchRefusedManual.bind(this));
 
     return router;
   }
@@ -234,9 +236,15 @@ export class controllerColmotica {
     const { ID_MANUALS, ID_USERS } = req.body;
     try {
       const result = await modelColmotica.mreqManual(ID_MANUALS, ID_USERS);
-      res
-        .status(201)
-        .json({ message: "Solicitud enviada", result: fixBigInt(result) });
+      if (result !== null) {
+        res
+          .status(201)
+          .json({ message: "Solicitud enviada", result: fixBigInt(result) });
+      } else {
+        res
+          .status(429)
+          .json({ error: "El usuario llego al limite de peticiones..." });
+      }
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error al solicitar el manual" });
@@ -244,13 +252,34 @@ export class controllerColmotica {
   }
 
   async cpatchApproveManual(req: Request, res: Response) {
-    const { ID_MANUALS, ID_USERS } = req.body;
+    const { ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS } = req.body;
     try {
-      await this.mailService.approvedManual(ID_USERS, ID_MANUALS);
+      await this.mailService.approvedManual(
+        ID_MANUALS_VS_USERS,
+        ID_USERS,
+        ID_MANUALS
+      );
       res.json({ message: "Manual aprobado y correo enviado" });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error al aprobar el manual" });
+    }
+  }
+
+  async cpatchRefusedManual(req: Request, res: Response) {
+    const { ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS } = req.body;
+    try {
+      await this.mailService.refusedManual(
+        ID_MANUALS_VS_USERS,
+        ID_USERS,
+        ID_MANUALS
+      );
+      res.json({
+        message: "Manual rechazado y correo de notificacion enviado",
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error al rechazar el manual" });
     }
   }
 

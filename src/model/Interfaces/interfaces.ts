@@ -65,6 +65,7 @@ export interface admins {
 }
 
 export interface manuals_VS_users {
+  ID_MANUALS_VS_USERS?: bigint;
   ID_MANUALS?: string;
   ID_USERS?: string;
   STATE?: Date;

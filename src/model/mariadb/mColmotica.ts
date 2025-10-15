@@ -9,6 +9,7 @@ import {
   userUp,
   manuals,
   admins,
+  //manuals_VS_users,
 } from "../Interfaces/interfaces";
 
 const pool = mariadb.createPool({
@@ -17,6 +18,7 @@ const pool = mariadb.createPool({
   port: 3307,
   password: "1234567890",
   database: "COLMOTICA_WEB",
+  timezone: "local",
   bigIntAsNumber: true,
 });
 
@@ -106,13 +108,12 @@ export class modelColmotica {
         ID_CODE: randomUUID(),
         ID_USERS: idUser,
         CONTENT: code,
-        CREATED_AT: new Date(),
         STATUS: 1,
       };
 
       const result = await conn.query(
-        `INSERT INTO CODE_VERIFICATION (ID_CODE, ID_USERS, CONTENT, CREATED_AT, STATUS) 
-       VALUES (?, ?, ?, NOW(), ?)`,
+        `INSERT INTO CODE_VERIFICATION (ID_CODE, ID_USERS, CONTENT, STATUS) 
+       VALUES (?, ?, ?, ?)`,
         [newCode.ID_CODE, newCode.ID_USERS, newCode.CONTENT, newCode.STATUS]
       );
       console.log(result);
@@ -346,17 +347,11 @@ export class modelColmotica {
         ID_MANUALS: randomUUID(),
         ID_ROL: input.ID_ROL,
         NAME: input.NAME,
-        CREATE_AT: input.CREATE_AT,
       };
 
       const result = await conn.query(
-        "INSERT INTO MANUALS (ID_MANUALS, ID_ROL, NAME, CREATED_AT) VALUES (?,?,?,NOW())",
-        [
-          newManual.ID_MANUALS,
-          newManual.ID_ROL,
-          newManual.NAME,
-          newManual.CREATE_AT,
-        ]
+        "INSERT INTO MANUALS (ID_MANUALS, ID_ROL, NAME) VALUES (?,?,?)",
+        [newManual.ID_MANUALS, newManual.ID_ROL, newManual.NAME]
       );
 
       console.log({ result });
@@ -402,14 +397,40 @@ export class modelColmotica {
     let conn;
     try {
       conn = await pool.getConnection();
-      const result = await conn.query(
-        "INSERT INTO MANUALS_VS_USERS (ID_MANUALS, ID_USERS, STATE, DATE_REQ, DATE_APPROVED) VALUE (?,?,'PENDIENTE',NOW(),NULL)",
-        [idManual, idUser]
+
+      const newReq = {
+        ID_MANUALS: idManual,
+        ID_USERS: idUser,
+        STATE: "PENDIENTE",
+      };
+
+      let result = await conn.query(
+        "SELECT COUNT(*) AS SOLICITUDES_REALIZADAS FROM MANUALS_VS_USERS WHERE ID_USERS = ?",
+        [newReq.ID_USERS]
       );
 
-      console.log({ result });
+      if (result[0].SOLICITUDES_REALIZADAS < 5) {
+        result = await conn.query(
+          "INSERT INTO MANUALS_VS_USERS (ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS, STATE, DATE_APPROVED) VALUES (COALESCE((SELECT MAX(ID_MANUALS_VS_USERS) + 1 FROM MANUALS_VS_USERS),1), ?,?,?,NULL)",
+          [newReq.ID_MANUALS, newReq.ID_USERS, newReq.STATE]
+        );
 
-      return result;
+        const log = await conn.query(
+          "INSERT INTO LOG_MANUAL (ID_LOG, ID_USERS, ID_MANUALS) VALUE (?,?,?)",
+          [randomUUID(), idUser, idManual]
+        );
+
+        console.log({ log });
+
+        console.log({ result });
+
+        return result;
+      } else {
+        console.error({
+          error: "Este usuario alcanzo el numero maximo de solicitudes...",
+        });
+        return null;
+      }
     } catch (error) {
       console.error("Error en mreqManual(): ", error);
     } finally {
@@ -417,13 +438,33 @@ export class modelColmotica {
     }
   }
 
-  static async mapprovedManual(idManual: string, idUser: string) {
+  static async mapprovedManual(ID: BigInt, idManual: string, idUser: string) {
     let conn;
     try {
       conn = await pool.getConnection();
+      const hora = conn.query("SET time_zone = '-5:00'");
+      console.log({ hora_actual: hora });
       const result = await conn.query(
-        "UPDATE MANUALS_VS_USERS SET STATE = 'APROVADO', DATE_APPROVED = NOW() WHERE ID_MANUALS = ? AND ID_USERS = ?",
-        [idManual, idUser]
+        "UPDATE MANUALS_VS_USERS SET STATE = 'APROVADO', DATE_APPROVED = UTC_TIMESTAMP() WHERE ID_MANUALS_VS_USERS = ? AND ID_MANUALS = ? AND ID_USERS = ?",
+        [ID, idManual, idUser]
+      );
+      return result;
+    } catch (error) {
+      console.error("Error en mapprovedManual(): ", error);
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
+  static async mrefusedManual(ID: BigInt, idManual: string, idUser: string) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const hora = conn.query("SET time_zone = '-5:00'");
+      console.log({ hora_actual: hora });
+      const result = await conn.query(
+        "UPDATE MANUALS_VS_USERS SET STATE = 'RECHAZADO', DATE_APPROVED = UTC_TIMESTAMP() WHERE ID_MANUALS_VS_USERS = ? AND ID_MANUALS = ? AND ID_USERS = ?",
+        [ID, idManual, idUser]
       );
       return result;
     } catch (error) {
@@ -440,7 +481,7 @@ export class modelColmotica {
       const rows = await conn.query(`
       SELECT MU.ID_USERS, MU.ID_MANUALS, U.EMAIL, M.NAME, MU.STATE
       FROM MANUALS_VS_USERS MU
-      JOIN USERS U ON MU.ID_USERS = U.ID
+      JOIN USERS U ON MU.ID_USERS = U.ID_USERS
       JOIN MANUALS M ON MU.ID_MANUALS = M.ID_MANUALS
       WHERE MU.STATE = 'PENDIENTE'
     `);
