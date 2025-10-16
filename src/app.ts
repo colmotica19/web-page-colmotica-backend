@@ -4,7 +4,9 @@ import express from "express";
 import { createServer } from "http";
 import cors from "cors";
 import dotenv from "dotenv";
-import { controllerColmotica } from "./controller/cColmotica";
+import { controllerUsers } from "./controller/controller_users/cUsers";
+import { controllerManuals } from "./controller/controller_manuals/cManuals";
+import { controllerAdmins } from "./controller/controller_admins/cAdmins";
 import { sColmoticaService } from "./services/Colmotica/sColmotica.service";
 import { sMailService } from "./services/Mails/Mail.service";
 
@@ -22,11 +24,24 @@ const port = process.env.PORT ?? 1234;
 
 app.use(express.json());
 
-const rColmotica = new controllerColmotica(
+const rcolmoticaUsers = new controllerUsers(
   new sColmoticaService(),
   new sMailService()
 );
-app.use("/colmotica", rColmotica.listenRoutes());
+
+const rcolmoticaManuals = new controllerManuals(
+  new sColmoticaService(),
+  new sMailService()
+);
+
+const rcolmoticaAdmins = new controllerAdmins(
+  new sColmoticaService(),
+  new sMailService()
+);
+
+app.use("/colmotica", rcolmoticaUsers.listenRoutes());
+app.use("/colmotica", rcolmoticaManuals.listenRoutes());
+app.use("/colmotica", rcolmoticaAdmins.listenRoutes());
 
 server.listen(port, () => {
   console.log(`Server run from: http://localhost:${port}`);

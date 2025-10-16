@@ -1,8 +1,11 @@
-//import nodemailer from "nodemailer";
-// import jwt from "jsonwebtoken";
-import { modelColmotica } from "../../model/mariadb/mColmotica";
+import { mUser } from "../../model/mariadb/model_user/modelUser";
+import { mCode } from "../../model/mariadb/model_mails/modelCode";
+import { mNoti } from "../../model/mariadb/model_mails/modelNoti";
+import { mManuals } from "../../model/mariadb/model_manuals/modelManuals";
 import { validateSchema } from "../../model/validations/schemas";
 import { Resend } from "resend";
+import fs from "fs";
+import path from "path";
 
 export class sMailService {
   constructor() {}
@@ -10,51 +13,56 @@ export class sMailService {
   static async sendMail(idUser: string, val: Record<string, any>) {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    const code = Math.floor(100000 + Math.random() * 900000);
-    console.log("Código generado:", code);
+    try {
+      const code = Math.floor(100000 + Math.random() * 900000);
+      console.log("Código generado:", code);
 
-    const validate = validateSchema({
-      ID_USERS: idUser,
-      CONTENT: code,
-      DATE: new Date(),
-      STATUS: 1,
-    });
+      const validate = validateSchema({
+        ID_USERS: idUser,
+        CONTENT: code,
+        DATE: new Date(),
+        STATUS: 1,
+      });
 
-    if (!validate.success) {
-      throw new Error(
-        "Código inválido: " + JSON.stringify(validate.error.format())
+      if (!validate.success) {
+        throw new Error(
+          "Código inválido: " + JSON.stringify(validate.error.format())
+        );
+      }
+
+      await mCode.minsertVerificationCode(
+        validate.data.ID_USERS,
+        validate.data.CONTENT
       );
-    }
 
-    await modelColmotica.minsertVerificationCode(
-      validate.data.ID_USERS,
-      validate.data.CONTENT
-    );
+      console.log("Código guardado en DB:", code);
 
-    console.log("Código guardado en DB:", code);
-
-    const response = await resend.emails.send({
-      from: `Colmotica <${process.env.MAIL_FROM}>`,
-      to: val.data.EMAIL,
-      subject: "Verifica tu cuenta",
-      html: `
+      const response = await resend.emails.send({
+        from: `Colmotica <${process.env.MAIL_FROM}>`,
+        to: val.data.EMAIL,
+        subject: "Verifica tu cuenta",
+        html: `
         <p>Hola ${val.data.NAME || "usuario"},</p>
         <p>Tu código de verificación (expira en 10 minutos):</p>
         <h2>${code}</h2>
         <p>Si no solicitaste esta verificación, ignora este correo.</p>`,
-    });
+      });
 
-    console.log("Correo enviado:", response);
-    const mailService = new sMailService();
-    await mailService.sendMailNoti(val.data.EMAIL);
+      console.log("Correo enviado:", response);
+      const mailService = new sMailService();
+      await mailService.sendMailNoti(val.data.EMAIL);
 
-    return code.toString();
+      return code.toString();
+    } catch (error) {
+      console.error(error);
+      throw new Error("Fallo al enviar correo");
+    }
   }
 
   async sendMailNoti(emailUsuario: string) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     try {
-      const emailsNoti = await modelColmotica.sendNoti();
+      const emailsNoti = await mNoti.sendNoti();
 
       if (!emailsNoti || emailsNoti.length === 0) return;
 
@@ -74,12 +82,13 @@ export class sMailService {
       }
     } catch (error) {
       console.error("Error enviando correos de notificación:", error);
+      throw new Error("Fallo al enviar correo");
     }
   }
 
   async verifyCode(idUser: string, code: string): Promise<boolean> {
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const [row] = await modelColmotica.mgetLastVerificationCode(idUser);
+    const [row] = await mCode.mgetLastVerificationCode(idUser);
     if (!row) return false;
 
     const createdAt = new Date(row.CREATED_AT);
@@ -89,9 +98,9 @@ export class sMailService {
 
     if (Number(row.CONTENT) !== Number(code)) return false;
 
-    await modelColmotica.mverifyUser(idUser);
-    await modelColmotica.mdeactivateCode(row.ID_CODE);
-    const email = await modelColmotica.sendNoti();
+    await mUser.mverifyUser(idUser);
+    await mCode.mdeactivateCode(row.ID_CODE);
+    const email = await mNoti.sendNoti();
 
     console.log(email);
 
@@ -111,21 +120,30 @@ export class sMailService {
       }
     } catch (error) {
       console.error("Error al enviar el codigo:", error);
+      throw new Error("Fallo al enviar correo");
     }
 
     return true;
   }
 
   async approvedManual(ID: BigInt, idUser: string, idManual: string) {
-    await modelColmotica.mapprovedManual(ID, idManual, idUser);
+    await mManuals.mapprovedManual(ID, idManual, idUser);
 
-    const emailManual = await modelColmotica.sendNotimanual(idUser);
+    const emailManual: any = await mNoti.sendNotimanual(idUser, idManual);
 
-    const [data] = await modelColmotica.mgetUserManualInfo(idUser, idManual);
+    const [data] = await mManuals.mgetUserManualInfo(idUser, idManual);
     if (!data) return false;
 
     try {
       for (const row of emailManual) {
+        const pdfManual = path.resolve(
+          __dirname,
+          "../../assets/manuals",
+          `${row.NAME}.pdf`
+        );
+        const pdfManualread = fs.readFileSync(pdfManual);
+        const pdfManual64 = pdfManualread.toString("base64");
+
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
           from: `Colmotica <${process.env.MAIL_FROM}>`,
@@ -134,21 +152,30 @@ export class sMailService {
           html: `
       <p>Hola,</p>
       <p>Tu solicitud del manual <b>${row.NAME}</b> ha sido aprobada.</p>
-      <p>Puedes accederlo en la plataforma Colmotica.</p>
     `,
+
+          attachments: [
+            {
+              filename: `${row.NAME}.pdf`,
+              content: pdfManual64,
+            },
+          ],
         });
 
         console.log("Correo enviado...");
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error enviando correo:", error);
+      throw new Error("Fallo al enviar correo");
+    }
   }
 
   async refusedManual(ID: BigInt, idUser: string, idManual: string) {
-    await modelColmotica.mrefusedManual(ID, idManual, idUser);
+    await mManuals.mrefusedManual(ID, idManual, idUser);
 
-    const emailManual = await modelColmotica.sendNotimanual(idUser);
+    const emailManual: any = await mNoti.sendNotimanual(idUser, idManual);
 
-    const [data] = await modelColmotica.mgetUserManualInfo(idUser, idManual);
+    const [data] = await mManuals.mgetUserManualInfo(idUser, idManual);
     if (!data) return false;
 
     try {
@@ -168,6 +195,9 @@ export class sMailService {
 
         console.log("Correo enviado...");
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("Error enviando correo:", error);
+      throw new Error("Fallo al enviar correo");
+    }
   }
 }
