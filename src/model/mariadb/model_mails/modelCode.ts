@@ -10,7 +10,27 @@ export class mCode {
       STATUS: 1,
     };
 
-    const query = `INSERT INTO CODE_VERIFICATION (ID_CODE, ID_USERS, CONTENT, STATUS) VALUES (?, ?, ?, ?)`;
+    const query = `INSERT INTO CODE_VERIFICATION (ID_CODE, ID_USERS, CONTENT, STATUS, TYPE) VALUES (?, ?, ?, ?, 'VERIFICACION')`;
+    const params = [
+      newCode.ID_CODE,
+      newCode.ID_USERS,
+      newCode.CONTENT,
+      newCode.STATUS,
+    ];
+    const resultFinal = await executeQuery(query, params);
+    console.log(resultFinal);
+    return resultFinal;
+  }
+
+  static async minsertRecoverCode(idUser: string, code: number) {
+    const newCode = {
+      ID_CODE: randomUUID(),
+      ID_USERS: idUser,
+      CONTENT: code,
+      STATUS: 1,
+    };
+
+    const query = `INSERT INTO CODE_VERIFICATION (ID_CODE, ID_USERS, CONTENT, STATUS, TYPE) VALUES (?, ?, ?, ?, 'RECUPERACION')`;
     const params = [
       newCode.ID_CODE,
       newCode.ID_USERS,

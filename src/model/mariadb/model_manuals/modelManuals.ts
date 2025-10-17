@@ -110,4 +110,11 @@ export class mManuals {
     const resultFinal = executeQuery(query);
     return resultFinal;
   }
+
+  static async mgetNumberReq() {
+    const query = "SELECT COUNT(*) FROM LOG_MANUAL";
+    const resultFinal = executeQuery(query);
+
+    return resultFinal;
+  }
 }

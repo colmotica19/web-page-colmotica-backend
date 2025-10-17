@@ -37,6 +37,7 @@ export interface codeVerification {
   CONTENT: number;
   CREATED_AT?: Date;
   STATUS?: number;
+  TYPE?: string;
 }
 
 export interface manuals {

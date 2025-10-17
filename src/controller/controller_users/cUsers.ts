@@ -28,11 +28,15 @@ export class controllerUsers {
     router.post("/users/verify-code", this.verifyCode.bind(this));
     router.patch("/users/update/:idUser", controllerUsers.cpatchUsers);
     router.delete("/users/delete/:idUser", controllerUsers.cdeleteUser);
+    router.post("/users/sendcode", this.crecoverPass.bind(this));
+    router.post("/users/recover-pass", this.cupPass.bind(this));
 
     return router;
   }
 
   async cpostUsers(req: Request, res: Response) {
+    const newObj = new mUser(this.colmoticaService);
+
     try {
       const val = validateUser(req.body);
       if (!val.success) {
@@ -40,7 +44,7 @@ export class controllerUsers {
           .status(422)
           .json({ error: "Digite los datos correctamente postUsers" });
       } else {
-        const result = await mUser.mpostRegistro(val.data);
+        const result: any = await newObj.mpostRegistro(val.data);
         console.log(val.data);
         const token = result.ID_USERS;
         sMailService.sendMail(token, val);
@@ -82,7 +86,7 @@ export class controllerUsers {
           });
         } else {
           const pass = valUser.data.PASS_HASH;
-          const pass_hash = await this.colmoticaService.createHash(
+          const pass_hash = await this.colmoticaService.valHash(
             pass,
             result[0].PASS_HASH
           );
@@ -129,7 +133,6 @@ export class controllerUsers {
     try {
       const { idUser } = req.params;
 
-      // Validar el body con Zod
       const result = patchUser(req.body);
       if (!result.success) {
         return res.status(422).json({
@@ -138,7 +141,6 @@ export class controllerUsers {
         });
       }
 
-      // Actualizar usuario
       const upUser = await mUser.mupdateUsers(idUser, result.data);
 
       if (!upUser) {
@@ -169,6 +171,63 @@ export class controllerUsers {
     } catch (err) {
       console.error("Error en cdeleteUsers:", err);
       return res.status(500).json({ error: "Error del servidor!!" });
+    }
+  }
+
+  async crecoverPass(req: Request, res: Response) {
+    const { email } = req.body;
+
+    try {
+      const data = await sMailService.sendCodeRecover(email);
+      if (!data) {
+        res.status(400).json({ error: "Codigo invalido o expirado..." });
+      } else {
+        res.status(200).json({ success: true, message: "Correo enviado" });
+      }
+    } catch (error) {
+      console.error("Error en verifyCode:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Error en verificación" });
+    }
+  }
+
+  async cupPass(req: Request, res: Response) {
+    const { email, pass } = req.body;
+
+    console.log({ email_message: email, pass_message: pass });
+
+    try {
+      const user = await mUser.getEmail(email);
+
+      if (!user) {
+        console.error("Usuario no encontrado:", email);
+        return res.status(404).json({
+          success: false,
+          message: "Este correo no está registrado",
+        });
+      }
+
+      const updated = await sMailService.verifyCodeRecover(email, pass);
+
+      if (!updated) {
+        console.warn("Código inválido o expirado para:", email);
+        return res.status(400).json({
+          success: false,
+          message: "Código inválido o expirado",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Contraseña cambiada correctamente",
+      });
+    } catch (error) {
+      console.error("Error en cupPass:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error en verificación de contraseña",
+      });
     }
   }
 }

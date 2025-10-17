@@ -22,6 +22,7 @@ export class controllerManuals {
     router.get("/users/manuals", controllerManuals.cgetManuals);
     router.post("/manuals/req", this.cpostManualRequest.bind(this));
     router.get("/manuals/req/pendiente", this.cgetpendingManuals.bind(this));
+    router.get("/manuals/req/total", this.cgetNumberReq.bind(this));
     router.patch("/manuals/req/aprobado", this.cpatchApproveManual.bind(this));
     router.patch("/manuals/req/rechazado", this.cpatchRefusedManual.bind(this));
 
@@ -116,6 +117,16 @@ export class controllerManuals {
       res
         .status(500)
         .json({ error: "Error del servidor!! (cgetpendingManuals)" });
+    }
+  }
+
+  async cgetNumberReq(req: Request, res: Response) {
+    try {
+      const result = await mManuals.mgetNumberReq();
+      res.status(200).json({ success: true, result: result });
+    } catch (error) {
+      console.error("Error de serviror: ", error);
+      res.status(500).json({ error: "Error del servidor!! (cgetNumberReq)" });
     }
   }
 }

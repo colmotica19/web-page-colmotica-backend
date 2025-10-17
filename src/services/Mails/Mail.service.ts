@@ -6,10 +6,9 @@ import { validateSchema } from "../../model/validations/schemas";
 import { Resend } from "resend";
 import fs from "fs";
 import path from "path";
+import { sColmoticaService } from "../Colmotica/sColmotica.service";
 
 export class sMailService {
-  constructor() {}
-
   static async sendMail(idUser: string, val: Record<string, any>) {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -49,8 +48,8 @@ export class sMailService {
       });
 
       console.log("Correo enviado:", response);
-      const mailService = new sMailService();
-      await mailService.sendMailNoti(val.data.EMAIL);
+
+      await sMailService.sendMailNoti(val.data.EMAIL);
 
       return code.toString();
     } catch (error) {
@@ -59,7 +58,7 @@ export class sMailService {
     }
   }
 
-  async sendMailNoti(emailUsuario: string) {
+  static async sendMailNoti(emailUsuario: string) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     try {
       const emailsNoti = await mNoti.sendNoti();
@@ -198,6 +197,77 @@ export class sMailService {
     } catch (error) {
       console.error("Error enviando correo:", error);
       throw new Error("Fallo al enviar correo");
+    }
+  }
+
+  static async sendCodeRecover(email: string) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const user = await mUser.getEmail(email);
+      if (!user) return false;
+
+      const code = Math.floor(100000 + Math.random() * 900000);
+      console.log("Código generado:", code);
+
+      const idUser: string | null = await mUser.getId(email);
+      if (!idUser) return false;
+
+      const response = await resend.emails.send({
+        from: `Colmotica <${process.env.MAIL_FROM}>`,
+        to: user.EMAIL,
+        subject: "Recupera tu cuenta",
+        html: `
+        <p>Hola ${user.NAME || "usuario"},</p>
+        <p>Tu código para cambiar tu clave (expira en 10 minutos):</p>
+        <h2>${code}</h2>`,
+      });
+
+      console.log("Correo enviado:", response);
+
+      await mCode.minsertRecoverCode(idUser, code);
+
+      return true;
+    } catch (error) {
+      console.error({ error_message: error });
+      throw error;
+    }
+  }
+
+  static async verifyCodeRecover(email: string, pass: string) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    try {
+      const user = await mUser.getEmail(email);
+
+      if (!user) {
+        console.error("Usuario no encontrado:", email);
+        return false;
+      }
+
+      const [row] = await mCode.mgetLastVerificationCode(user.ID_USERS);
+      if (!row) return false;
+
+      let userInstance = new mUser(new sColmoticaService());
+      await userInstance.mrecoverPass(email, pass);
+
+      const response = await resend.emails.send({
+        from: `Colmotica <${process.env.MAIL_FROM}>`,
+        to: user.EMAIL,
+        subject: "Contraseña cambiada",
+        html: `
+        <p>Hola ${user.NAME || "usuario"},</p>
+        <p>Tu contraseña ha sido cambiada con exito!!`,
+      });
+
+      console.log("Correo enviado:", response);
+
+      userInstance = new mUser(new sColmoticaService());
+      await userInstance.mrecoverPass(email, pass);
+      await mCode.mdeactivateCode(user.ID_USERS);
+
+      return true;
+    } catch (error) {
+      console.error({ error_message: error });
+      throw error;
     }
   }
 }

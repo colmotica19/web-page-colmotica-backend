@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import bcrypt from "bcrypt";
 import { executeQuery } from "../conexion_mariadb";
 //import mariadb from "mariadb";
 import {
@@ -8,9 +7,16 @@ import {
   userUp,
   //manuals_VS_users,
 } from "../../Interfaces/interfaces";
+import { sColmoticaService } from "../../../services/Colmotica/sColmotica.service";
 
 export class mUser {
-  static async mpostRegistro(input: user) {
+  colmoticaService: sColmoticaService;
+
+  constructor(colmoticaService: sColmoticaService) {
+    this.colmoticaService = colmoticaService;
+  }
+
+  async mpostRegistro(input: user) {
     const newUser = {
       ID_USERS: randomUUID(),
       ID_ROL: input.ID_ROL,
@@ -22,27 +28,37 @@ export class mUser {
       VERIFIED: input.VERIFIED,
     };
 
-    const hash = await bcrypt.hash(newUser.PASS_HASH, 12);
+    const hash = this.colmoticaService.createHash(newUser.PASS_HASH);
 
-    const query =
-      "INSERT INTO USERS (ID_USERS, ID_ROL, EMAIL, PAIS, TEL, NAME, PASS_HASH, VERIFIED)VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    const queryVal = "SELECT * FROM USERS WHERE EMAIL = ?";
+    const paramsVal = [newUser.EMAIL];
 
-    const params = [
-      newUser.ID_USERS,
-      newUser.ID_ROL,
-      newUser.EMAIL,
-      newUser.PAIS,
-      newUser.TEL,
-      newUser.NAME,
-      hash,
-      newUser.VERIFIED,
-    ];
+    const resultVal = await executeQuery(queryVal, paramsVal);
 
-    await executeQuery(query, params);
+    if (resultVal.length !== 0) {
+      console.error({ error: "Este correo ya esta registrado..." });
+      return null;
+    } else {
+      const query =
+        "INSERT INTO USERS (ID_USERS, ID_ROL, EMAIL, PAIS, TEL, NAME, PASS_HASH, VERIFIED)VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-    console.log({ resultM: query });
+      const params = [
+        newUser.ID_USERS,
+        newUser.ID_ROL,
+        newUser.EMAIL,
+        newUser.PAIS,
+        newUser.TEL,
+        newUser.NAME,
+        hash,
+        newUser.VERIFIED,
+      ];
 
-    return newUser;
+      await executeQuery(query, params);
+
+      console.log({ resultM: query });
+
+      return newUser;
+    }
   }
 
   static async mgetUsers() {
@@ -124,6 +140,48 @@ export class mUser {
     const query = "UPDATE USERS SET VERIFIED = 1 WHERE ID_USERS = ?";
     const params = [input];
     const resultFinal = executeQuery(query, params);
+    return resultFinal;
+  }
+
+  static async getEmail(email: string) {
+    const query = "SELECT * FROM USERS WHERE EMAIL = ?";
+    const params = [email];
+
+    const result: any[] = await executeQuery(query, params);
+
+    if (result.length === 0) {
+      console.error({ error: "Este correo no está registrado..." });
+      return null;
+    } else {
+      return result[0];
+    }
+  }
+
+  static async getId(email: string) {
+    const recoPass = {
+      EMAIL: email,
+    };
+
+    const query = "SELECT ID_USERS FROM USERS WHERE EMAIL = ?";
+    const params = [recoPass.EMAIL];
+
+    const result = await executeQuery(query, params);
+
+    if (result.length > 0) {
+      const id: string = result[0].ID_USERS;
+      return id;
+    } else {
+      console.error({ error: "Este correo no existe..." });
+      return null;
+    }
+  }
+
+  async mrecoverPass(email: string, pass: string) {
+    const newPass = this.colmoticaService.createHash(pass);
+    const query = "UPDATE USERS SET PASS_HASH = ? WHERE EMAIL = ? ";
+    const params = [newPass, email];
+
+    const resultFinal = await executeQuery(query, params);
     return resultFinal;
   }
 }
