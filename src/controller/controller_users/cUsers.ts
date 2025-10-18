@@ -1,3 +1,5 @@
+//cUsers.ts
+
 import { Request, Response, Router } from "express";
 import {
   validateLogin,
@@ -25,7 +27,7 @@ export class controllerUsers {
     router.post("/users", this.cpostUsers.bind(this));
     router.get("/users", controllerUsers.cgetUsers);
     router.post("/users/login", this.cpostLogin.bind(this));
-    router.post("/users/verify-code", this.verifyCode.bind(this));
+    router.post("/users/verify-code", this.VerifyCode.bind(this));
     router.patch("/users/update/:idUser", controllerUsers.cpatchUsers);
     router.delete("/users/delete/:idUser", controllerUsers.cdeleteUser);
     router.post("/users/sendcode", this.crecoverPass.bind(this));
@@ -110,7 +112,7 @@ export class controllerUsers {
     }
   }
 
-  async verifyCode(req: Request, res: Response) {
+  async VerifyCode(req: Request, res: Response) {
     const { idUser, code } = req.body;
     try {
       const verified = await this.mailService.verifyCode(idUser, code);
@@ -195,28 +197,17 @@ export class controllerUsers {
   async cupPass(req: Request, res: Response) {
     const { email, pass } = req.body;
 
-    console.log({ email_message: email, pass_message: pass });
-
     try {
       const user = await mUser.getEmail(email);
-
       if (!user) {
-        console.error("Usuario no encontrado:", email);
         return res.status(404).json({
           success: false,
-          message: "Este correo no está registrado",
+          message: "Correo no encontrado",
         });
       }
 
-      const updated = await sMailService.verifyCodeRecover(email, pass);
-
-      if (!updated) {
-        console.warn("Código inválido o expirado para:", email);
-        return res.status(400).json({
-          success: false,
-          message: "Código inválido o expirado",
-        });
-      }
+      const userInstance = new mUser(new sColmoticaService());
+      await userInstance.mrecoverPass(email, pass);
 
       return res.status(200).json({
         success: true,
@@ -226,7 +217,32 @@ export class controllerUsers {
       console.error("Error en cupPass:", error);
       return res.status(500).json({
         success: false,
-        message: "Error en verificación de contraseña",
+        message: "Error al cambiar la contraseña",
+      });
+    }
+  }
+
+  async verifyCodeRecover(req: Request, res: Response) {
+    const { email, code } = req.body;
+
+    try {
+      const valid = await sMailService.verifyRecoverCode(email, code);
+      if (!valid) {
+        return res.status(400).json({
+          success: false,
+          message: "Código inválido o expirado",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Código verificado correctamente",
+      });
+    } catch (error) {
+      console.error("Error en verifyCodeRecover:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error al verificar el código",
       });
     }
   }

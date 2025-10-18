@@ -1,14 +1,16 @@
+//modelNoti.ts
+
 import { executeQuery } from "../conexion_mariadb";
 
 export class mNoti {
   static async sendNoti() {
     const query =
-      "SELECT EMAIL FROM USERS WHERE ID_ROL = '10001'  OR ID_ROL = '10002'";
-
+      "SELECT EMAIL FROM USERS WHERE ID_ROL = '10001' OR ID_ROL = '10002'";
     const resultFinal = await executeQuery(query, []);
-    if (resultFinal.length == 0) {
-      console.log("No hay correos registrados...");
-      return;
+
+    if (!resultFinal || resultFinal.length === 0) {
+      console.log("No hay correos de administradores registrados...");
+      return [];
     }
 
     return resultFinal;

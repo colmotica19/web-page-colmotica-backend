@@ -1,3 +1,5 @@
+// modelCOde.ts
+
 import { randomUUID } from "crypto";
 import { executeQuery } from "../conexion_mariadb";
 
@@ -53,9 +55,19 @@ export class mCode {
     return resultFinal;
   }
 
+  static async mgetLastCodeByType(idUser: string, type: string) {
+    const query = `
+      SELECT * 
+      FROM CODE_VERIFICATION 
+      WHERE ID_USERS = ? AND TYPE = ? 
+      ORDER BY CREATED_AT DESC 
+      LIMIT 1
+    `;
+    return await executeQuery(query, [idUser, type]);
+  }
+
   static async mdeactivateCode(idCode: string) {
     const query = `UPDATE CODE_VERIFICATION SET STATUS = 0 WHERE ID_CODE = ?`;
-    const params = [idCode];
-    await executeQuery(query, params);
+    return await executeQuery(query, [idCode]);
   }
 }

@@ -1,3 +1,5 @@
+//Mail.service.ts
+
 import { mUser } from "../../model/mariadb/model_user/modelUser";
 import { mCode } from "../../model/mariadb/model_mails/modelCode";
 import { mNoti } from "../../model/mariadb/model_mails/modelNoti";
@@ -100,6 +102,7 @@ export class sMailService {
     await mUser.mverifyUser(idUser);
     await mCode.mdeactivateCode(row.ID_CODE);
     const email = await mNoti.sendNoti();
+    if (!email || email.length === 0) return true;
 
     console.log(email);
 
@@ -233,41 +236,82 @@ export class sMailService {
     }
   }
 
-  static async verifyCodeRecover(email: string, pass: string) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
+  static async verifyCodeRecover(email: string, code: string, newPass: string) {
     try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
       const user = await mUser.getEmail(email);
+      if (!user) return false;
 
-      if (!user) {
-        console.error("Usuario no encontrado:", email);
+      // Buscar el último código tipo RECUPERACION
+      const [row] = await mCode.mgetLastCodeByType(
+        user.ID_USERS,
+        "RECUPERACION"
+      );
+      if (!row) return false;
+
+      // Validar que el código sea el mismo
+      if (Number(row.CONTENT) !== Number(code)) {
+        console.warn("Código incorrecto");
         return false;
       }
 
-      const [row] = await mCode.mgetLastVerificationCode(user.ID_USERS);
-      if (!row) return false;
+      // Validar tiempo (10 min)
+      const createdAt = new Date(row.CREATED_AT);
+      const diffMinutes = (Date.now() - createdAt.getTime()) / 60000;
+      if (diffMinutes > 10) {
+        console.warn("Código expirado");
+        return false;
+      }
 
-      let userInstance = new mUser(new sColmoticaService());
-      await userInstance.mrecoverPass(email, pass);
+      // ✅ Si todo está bien, cambiar la contraseña
+      const userInstance = new mUser(new sColmoticaService());
+      await userInstance.mrecoverPass(email, newPass);
 
-      const response = await resend.emails.send({
+      // Desactivar el código
+      await mCode.mdeactivateCode(row.ID_CODE);
+
+      // Avisar al usuario
+      await resend.emails.send({
         from: `Colmotica <${process.env.MAIL_FROM}>`,
         to: user.EMAIL,
-        subject: "Contraseña cambiada",
-        html: `
-        <p>Hola ${user.NAME || "usuario"},</p>
-        <p>Tu contraseña ha sido cambiada con exito!!`,
+        subject: "Contraseña cambiada correctamente",
+        html: `<p>Hola ${user.NAME || "usuario"},</p>
+             <p>Tu contraseña ha sido cambiada con éxito.</p>`,
       });
-
-      console.log("Correo enviado:", response);
-
-      userInstance = new mUser(new sColmoticaService());
-      await userInstance.mrecoverPass(email, pass);
-      await mCode.mdeactivateCode(user.ID_USERS);
 
       return true;
     } catch (error) {
-      console.error({ error_message: error });
-      throw error;
+      console.error("Error en verifyCodeRecover:", error);
+      return false;
+    }
+  }
+
+  static async verifyRecoverCode(email: string, code: string) {
+    try {
+      const user = await mUser.getEmail(email);
+      if (!user) return false;
+
+      const [row] = await mCode.mgetLastCodeByType(
+        user.ID_USERS,
+        "RECUPERACION"
+      );
+      if (!row) return false;
+
+      // Validar código
+      if (Number(row.CONTENT) !== Number(code)) return false;
+
+      // Validar expiración (10 minutos)
+      const createdAt = new Date(row.CREATED_AT);
+      const diffMinutes = (Date.now() - createdAt.getTime()) / 60000;
+      if (diffMinutes > 10) return false;
+
+      // ✅ Si todo va bien, desactivar el código para que no se use de nuevo
+      await mCode.mdeactivateCode(row.ID_CODE);
+
+      return true;
+    } catch (error) {
+      console.error("Error en verifyRecoverCode:", error);
+      return false;
     }
   }
 }

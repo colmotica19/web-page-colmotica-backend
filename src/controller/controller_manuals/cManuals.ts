@@ -1,3 +1,5 @@
+//cManuals.ts
+
 import { Request, Response, Router } from "express";
 import { validateManual } from "../../model/validations/schemas";
 import { mManuals } from "../../model/mariadb/model_manuals/modelManuals";

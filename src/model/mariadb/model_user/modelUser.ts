@@ -1,3 +1,5 @@
+//modelUser.ts
+
 import { randomUUID } from "crypto";
 import { executeQuery } from "../conexion_mariadb";
 //import mariadb from "mariadb";
@@ -28,7 +30,7 @@ export class mUser {
       VERIFIED: input.VERIFIED,
     };
 
-    const hash = this.colmoticaService.createHash(newUser.PASS_HASH);
+    const hash = await this.colmoticaService.createHash(newUser.PASS_HASH);
 
     const queryVal = "SELECT * FROM USERS WHERE EMAIL = ?";
     const paramsVal = [newUser.EMAIL];
@@ -145,18 +147,9 @@ export class mUser {
 
   static async getEmail(email: string) {
     const query = "SELECT * FROM USERS WHERE EMAIL = ?";
-    const params = [email];
-
-    const result: any[] = await executeQuery(query, params);
-
-    if (result.length === 0) {
-      console.error({ error: "Este correo no está registrado..." });
-      return null;
-    } else {
-      return result[0];
-    }
+    const [rows] = await executeQuery(query, [email]);
+    return rows;
   }
-
   static async getId(email: string) {
     const recoPass = {
       EMAIL: email,
@@ -177,7 +170,7 @@ export class mUser {
   }
 
   async mrecoverPass(email: string, pass: string) {
-    const newPass = this.colmoticaService.createHash(pass);
+    const newPass = await this.colmoticaService.createHash(pass);
     const query = "UPDATE USERS SET PASS_HASH = ? WHERE EMAIL = ? ";
     const params = [newPass, email];
 

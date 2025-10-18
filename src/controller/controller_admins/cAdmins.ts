@@ -1,3 +1,5 @@
+//cAdmins.ts
+
 import { Request, Response, Router } from "express";
 import { validateAdmin } from "../../model/validations/schemas";
 import { mAdmins } from "../../model/mariadb/model_admins/modelAdmins";

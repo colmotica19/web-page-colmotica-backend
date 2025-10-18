@@ -1,3 +1,5 @@
+//conexion_mariadb.ts
+
 import mariadb from "mariadb";
 
 export const pool = mariadb.createPool({

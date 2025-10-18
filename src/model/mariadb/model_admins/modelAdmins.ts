@@ -1,3 +1,5 @@
+//modelAdmins.ts
+
 import { admins } from "../../Interfaces/interfaces";
 import { randomUUID } from "crypto";
 import { executeQuery } from "../conexion_mariadb";

@@ -1,3 +1,5 @@
+//modelManuals.ts
+
 import { randomUUID } from "crypto";
 import { manuals } from "../../Interfaces/interfaces";
 import { executeQuery } from "../conexion_mariadb";
