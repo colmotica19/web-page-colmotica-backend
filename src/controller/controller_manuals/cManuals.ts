@@ -80,33 +80,87 @@ export class controllerManuals {
 
   async cpatchApproveManual(req: Request, res: Response) {
     const { ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS } = req.body;
+
     try {
-      await this.mailService.approvedManual(
+      const result: any = await mManuals.mapprovedManual(
         ID_MANUALS_VS_USERS,
+        ID_MANUALS,
+        ID_USERS
+      );
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No se encontró la solicitud a aprobar o ya fue procesada.",
+        });
+      }
+
+      const info: any[] = await mManuals.mgetUserManualInfo(
         ID_USERS,
         ID_MANUALS
       );
-      res.status(201).json({ message: "Manual aprobado y correo enviado" });
+      if (info.length > 0) {
+        await this.mailService.approvedManual(
+          ID_MANUALS_VS_USERS,
+          ID_USERS,
+          ID_MANUALS
+        );
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Manual aprobado exitosamente.",
+      });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error al aprobar el manual" });
+      console.error("Error en cpatchApproveManual:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error interno al aprobar el manual.",
+      });
     }
   }
 
   async cpatchRefusedManual(req: Request, res: Response) {
     const { ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS } = req.body;
+
     try {
-      await this.mailService.refusedManual(
+      const result: any = await mManuals.mrefusedManual(
         ID_MANUALS_VS_USERS,
+        ID_MANUALS,
+        ID_USERS
+      );
+
+      // Si no se afectó ninguna fila, no existe la solicitud
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No se encontró la solicitud a rechazar o ya fue procesada.",
+        });
+      }
+
+      // Obtener info del usuario y manual para enviar el correo
+      const info: any[] = await mManuals.mgetUserManualInfo(
         ID_USERS,
         ID_MANUALS
       );
-      res.status(201).json({
-        message: "Manual rechazado y correo de notificacion enviado",
+      if (info.length > 0) {
+        await this.mailService.refusedManual(
+          ID_MANUALS_VS_USERS,
+          ID_USERS,
+          ID_MANUALS
+        );
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Manual rechazado exitosamente.",
       });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error al rechazar el manual" });
+      console.error("Error en cpatchRefusedManual:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error interno al rechazar el manual.",
+      });
     }
   }
 

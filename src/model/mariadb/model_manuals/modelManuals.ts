@@ -84,7 +84,7 @@ export class mManuals {
     const query =
       "UPDATE MANUALS_VS_USERS SET STATE = 'APROVADO', DATE_APPROVED = UTC_TIMESTAMP() WHERE ID_MANUALS_VS_USERS = ? AND ID_MANUALS = ? AND ID_USERS = ?";
     const params = [ID, idManual, idUser];
-    const resultFinal = executeQuery(query, params);
+    const resultFinal = await executeQuery(query, params);
 
     return resultFinal;
   }
@@ -97,7 +97,7 @@ export class mManuals {
     const result =
       "UPDATE MANUALS_VS_USERS SET STATE = 'RECHAZADO', DATE_APPROVED = UTC_TIMESTAMP() WHERE ID_MANUALS_VS_USERS = ? AND ID_MANUALS = ? AND ID_USERS = ?";
     const params = [ID, idManual, idUser];
-    const resultFinal = executeQuery(result, params);
+    const resultFinal = await executeQuery(result, params);
 
     return resultFinal;
   }
