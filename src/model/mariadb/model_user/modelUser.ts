@@ -38,8 +38,7 @@ export class mUser {
     const resultVal = await executeQuery(queryVal, paramsVal);
 
     if (resultVal.length !== 0) {
-      console.error({ error: "Este correo ya esta registrado..." });
-      return null;
+      return { error: "Este correo ya esta registrado..." };
     } else {
       const query =
         "INSERT INTO USERS (ID_USERS, ID_ROL, EMAIL, PAIS, TEL, NAME, PASS_HASH, VERIFIED)VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -139,7 +138,7 @@ export class mUser {
   }
 
   static async mverifyUser(input: string) {
-    const query = "UPDATE USERS SET VERIFIED = 1 WHERE ID_USERS = ?";
+    const query = "UPDATE USERS SET VERIFIED = 1 WHERE EMAIL = ?";
     const params = [input];
     const resultFinal = executeQuery(query, params);
     return resultFinal;
@@ -150,6 +149,7 @@ export class mUser {
     const [rows] = await executeQuery(query, [email]);
     return rows;
   }
+
   static async getId(email: string) {
     const recoPass = {
       EMAIL: email,
@@ -169,6 +169,20 @@ export class mUser {
     }
   }
 
+  static async getIdUsers() {
+    const query = "SELECT ID_USERS FROM USERS";
+
+    const result = await executeQuery(query);
+
+    if (result.length > 0) {
+      const id: string = result[0].ID_USERS;
+      return id;
+    } else {
+      console.error({ error: "No hay usuarios registrados..." });
+      return null;
+    }
+  }
+
   async mrecoverPass(email: string, pass: string) {
     const newPass = await this.colmoticaService.createHash(pass);
     const query = "UPDATE USERS SET PASS_HASH = ? WHERE EMAIL = ? ";
@@ -176,5 +190,24 @@ export class mUser {
 
     const resultFinal = await executeQuery(query, params);
     return resultFinal;
+  }
+
+  static async mGetById(ID_USERS: number) {
+    try {
+      const [rows]: any = `SELECT ID_USERS, EMAIL, PASS_HASH 
+         FROM users 
+         WHERE ID_USERS = ? 
+         LIMIT 1`;
+      const params = [ID_USERS];
+
+      const result = await executeQuery(rows, params);
+
+      console.log(result);
+
+      return rows && rows.length > 0 ? rows[0] : null;
+    } catch (error) {
+      console.error("Error en mGetById:", error);
+      throw error;
+    }
   }
 }

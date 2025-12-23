@@ -7,6 +7,7 @@ import "dotenv/config";
 import { sMailService } from "../../services/Mails/Mail.service";
 import { sColmoticaService } from "../../services/Colmotica/sColmotica.service";
 import { fixBigInt } from "../../util/utils";
+import { auth } from "../../auth/middleware/auth";
 
 export class controllerManuals {
   colmoticaService: sColmoticaService;
@@ -20,13 +21,27 @@ export class controllerManuals {
   listenRoutes() {
     const router = Router();
 
-    router.post("/users/manuals", controllerManuals.caggManual);
-    router.get("/users/manuals", controllerManuals.cgetManuals);
-    router.post("/manuals/req", this.cpostManualRequest.bind(this));
-    router.get("/manuals/req/pendiente", this.cgetpendingManuals.bind(this));
-    router.get("/manuals/req/total", this.cgetNumberReq.bind(this));
-    router.patch("/manuals/req/aprobado", this.cpatchApproveManual.bind(this));
-    router.patch("/manuals/req/rechazado", this.cpatchRefusedManual.bind(this));
+    // ✅ Todas estas rutas quedan protegidas con `auth`
+    router.post("/users/manuals", auth, controllerManuals.caggManual);
+    router.get("/users/manuals", auth, controllerManuals.cgetManuals);
+
+    router.post("/manuals/req", auth, this.cpostManualRequest.bind(this));
+    router.get(
+      "/manuals/req/pendiente",
+      auth,
+      this.cgetpendingManuals.bind(this)
+    );
+    router.get("/manuals/req/total", auth, this.cgetNumberReq.bind(this));
+    router.patch(
+      "/manuals/req/aprobado",
+      auth,
+      this.cpatchApproveManual.bind(this)
+    );
+    router.patch(
+      "/manuals/req/rechazado",
+      auth,
+      this.cpatchRefusedManual.bind(this)
+    );
 
     return router;
   }

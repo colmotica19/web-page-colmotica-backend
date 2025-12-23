@@ -4,24 +4,37 @@ import { randomUUID } from "crypto";
 import { executeQuery } from "../conexion_mariadb";
 
 export class mCode {
-  static async minsertVerificationCode(idUser: string, code: number) {
-    const newCode = {
-      ID_CODE: randomUUID(),
-      ID_USERS: idUser,
-      CONTENT: code,
-      STATUS: 1,
-    };
+  static async minsertVerificationCode(email: string, code: number) {
+    const query_id_user = `SELECT ID_USERS FROM USERS WHERE EMAIL = ?`;
+    const params_id_user = [email];
 
-    const query = `INSERT INTO CODE_VERIFICATION (ID_CODE, ID_USERS, CONTENT, STATUS, TYPE) VALUES (?, ?, ?, ?, 'VERIFICACION')`;
-    const params = [
-      newCode.ID_CODE,
-      newCode.ID_USERS,
-      newCode.CONTENT,
-      newCode.STATUS,
-    ];
-    const resultFinal = await executeQuery(query, params);
-    console.log(resultFinal);
-    return resultFinal;
+    const result_idUser = await executeQuery(query_id_user, params_id_user);
+
+    if (result_idUser.length > 0) {
+      const idUser = result_idUser[0].ID_USERS;
+
+      const newCode = {
+        ID_CODE: randomUUID(),
+        ID_USERS: idUser,
+        CONTENT: code,
+        STATUS: 1,
+        EMAIL: email,
+      };
+
+      const query = `INSERT INTO CODE_VERIFICATION (ID_CODE, ID_USERS, CONTENT, STATUS, TYPE, EMAIL) VALUES (?, ?, ?, ?, 'VERIFICACION', ?)`;
+      const params = [
+        newCode.ID_CODE,
+        newCode.ID_USERS,
+        newCode.CONTENT,
+        newCode.STATUS,
+        newCode.EMAIL,
+      ];
+      const resultFinal = await executeQuery(query, params);
+      console.log(resultFinal);
+      return resultFinal;
+    } else {
+      return null;
+    }
   }
 
   static async minsertRecoverCode(idUser: string, code: number) {
@@ -44,30 +57,30 @@ export class mCode {
     return resultFinal;
   }
 
-  static async mgetLastVerificationCode(idUser: string) {
+  static async mgetLastVerificationCode(email: string) {
     const query = `SELECT * FROM CODE_VERIFICATION 
-             WHERE ID_USERS = ? AND STATUS = 1
+             WHERE EMAIL = ? AND STATUS = 1
              ORDER BY CREATED_AT DESC 
              LIMIT 1`;
 
-    const params = [idUser];
-    const resultFinal = executeQuery(query, params);
+    const params = [email];
+    const resultFinal = await executeQuery(query, params);
     return resultFinal;
   }
 
-  static async mgetLastCodeByType(idUser: string, type: string) {
+  static async mgetLastCodeByType(email: string, type: string) {
     const query = `
       SELECT * 
       FROM CODE_VERIFICATION 
-      WHERE ID_USERS = ? AND TYPE = ? 
+      WHERE EMAIL = ? AND TYPE = ? 
       ORDER BY CREATED_AT DESC 
       LIMIT 1
     `;
-    return await executeQuery(query, [idUser, type]);
+    return await executeQuery(query, [email, type]);
   }
 
-  static async mdeactivateCode(idCode: string) {
-    const query = `UPDATE CODE_VERIFICATION SET STATUS = 0 WHERE ID_CODE = ?`;
-    return await executeQuery(query, [idCode]);
+  static async mdeactivateCode(email: string) {
+    const query = `UPDATE CODE_VERIFICATION SET STATUS = 0 WHERE EMAIL = ?`;
+    return await executeQuery(query, [email]);
   }
 }

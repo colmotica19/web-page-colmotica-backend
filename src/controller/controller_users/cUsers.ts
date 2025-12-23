@@ -11,6 +11,7 @@ import "dotenv/config";
 import { sMailService } from "../../services/Mails/Mail.service";
 import { sColmoticaService } from "../../services/Colmotica/sColmotica.service";
 //import { fixBigInt } from "../../util/utils";
+import { auth } from "../../auth/middleware/auth";
 
 export class controllerUsers {
   colmoticaService: sColmoticaService;
@@ -32,8 +33,48 @@ export class controllerUsers {
     router.delete("/users/delete/:idUser", controllerUsers.cdeleteUser);
     router.post("/users/sendcode", this.crecoverPass.bind(this));
     router.post("/users/recover-pass", this.cupPass.bind(this));
+    router.get("/users/iduser", controllerUsers.cgetIdUsers);
+    router.get("/auth/me", auth, this.cgetMe);
 
     return router;
+  }
+
+  async cgetMe(req: Request, res: Response) {
+    try {
+      const sessionId = req.cookies.session_id;
+
+      console.log(sessionId);
+
+      if (!sessionId) {
+        return res.status(401).json({
+          success: false,
+          message: "No hay sesión activa",
+        });
+      }
+
+      // Busca usuario por ID (sessionId fue guardado como ID_USERS)
+      const result = await mUser.mGetById(sessionId);
+
+      if (!result || result.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: "Sesión inválida",
+        });
+      }
+
+      const user = result[0];
+
+      return res.status(200).json({
+        success: true,
+        user: {
+          EMAIL: user.EMAIL,
+          PASS_HASH: user.PASS_HASH, // Si quieres, puedes omitirlo aquí
+        },
+      });
+    } catch (error) {
+      console.error("Error en cgetMe:", error);
+      res.status(500).json({ success: false, message: "Error del servidor" });
+    }
   }
 
   async cpostUsers(req: Request, res: Response) {
@@ -42,15 +83,20 @@ export class controllerUsers {
     try {
       const val = validateUser(req.body);
       if (!val.success) {
-        res
-          .status(422)
-          .json({ error: "Digite los datos correctamente postUsers" });
+        res.status(422).json({
+          error: "Digite los datos correctamente postUsers",
+          message: JSON.parse(val.error.message),
+        });
       } else {
-        const result: any = await newObj.mpostRegistro(val.data);
+        const result = await newObj.mpostRegistro(val.data);
         console.log(val.data);
-        const token = result.ID_USERS;
-        sMailService.sendMail(token, val);
-        res.status(201).json({ success: true, result });
+        if ("error" in result) {
+          res.status(400).json(result);
+        } else {
+          const token = result.ID_USERS;
+          sMailService.sendMail(token, val);
+          res.status(201).json({ success: true, result });
+        }
       }
     } catch (error) {
       console.error("Error en cpostUsers:", error);
@@ -58,7 +104,7 @@ export class controllerUsers {
     }
   }
 
-  static async cgetUsers(req: Request, res: Response) {
+  static async cgetUsers(_req: Request, res: Response) {
     try {
       const result = await mUser.mgetUsers();
       res.status(200).json({ success: true, result: result });
@@ -70,52 +116,61 @@ export class controllerUsers {
 
   async cpostLogin(req: Request, res: Response) {
     const valUser = validateLogin(req.body);
-    console.log(valUser);
 
     try {
       if (!valUser.success) {
-        res.status(422).json({
+        return res.status(422).json({
           success: false,
           message: "Digite correctamente las credenciales...",
         });
-      } else {
-        const result = await mUser.mpostLogin(valUser.data);
-
-        if (!result || result.length === 0) {
-          return res.status(401).json({
-            success: false,
-            message: "Acceso no autorizado: credenciales incorrectas.",
-          });
-        } else {
-          const pass = valUser.data.PASS_HASH;
-          const pass_hash = await this.colmoticaService.valHash(
-            pass,
-            result[0].PASS_HASH
-          );
-          const reqLogin = req.body;
-
-          if (result[0].EMAIL === reqLogin.EMAIL && pass_hash === true) {
-            console.log("Credenciales correctas!!");
-            res.status(201).json({ success: true, reqLogin });
-          } else {
-            res
-              .status(401)
-              .json({ success: false, message: "Acceso no autorizado..." });
-          }
-        }
       }
+
+      const result = await mUser.mpostLogin(valUser.data);
+
+      if (!result || result.length === 0) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Credenciales incorrectas." });
+      }
+
+      const pass_hash_ok = await this.colmoticaService.valHash(
+        valUser.data.PASS_HASH,
+        result[0].PASS_HASH
+      );
+
+      if (!pass_hash_ok) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Credenciales incorrectas." });
+      }
+
+      // ✅ Creamos el token de sesión (puede ser el userID o un JWT como prefieras)
+      const sessionToken = result[0].ID_USERS; // SIMPLE: guardamos el ID en la cookie
+
+      // ✅ Seteamos cookie HTTP-only
+      res.cookie("session_id", sessionToken, {
+        httpOnly: true,
+        secure: false, // porque NO estás usando HTTPS
+        sameSite: "none", // no uses "none" mientras uses IP
+        path: "/",
+      });
+      return res.status(200).json({
+        success: true,
+        message: "Inicio de sesión exitoso",
+      });
     } catch (error) {
       console.error("Error en cpostLogin: ", error);
-      res
+      return res
         .status(500)
-        .json({ success: false, message: "Error en el servidor (cpostLogin)" });
+        .json({ success: false, message: "Error en el servidor" });
     }
   }
 
   async VerifyCode(req: Request, res: Response) {
-    const { idUser, code } = req.body;
+    const { email, code } = req.body;
     try {
-      const verified = await this.mailService.verifyCode(idUser, code);
+      const verified = await this.mailService.verifyCode(email, code);
+      console.log("Backend recibió:", email, code);
       if (verified) {
         res.status(200).json({ success: true, message: "Usuario verificado" });
       } else {
@@ -244,6 +299,16 @@ export class controllerUsers {
         success: false,
         message: "Error al verificar el código",
       });
+    }
+  }
+
+  static async cgetIdUsers(_req: Request, res: Response) {
+    try {
+      const result = await mUser.getIdUsers();
+      res.status(200).json({ success: true, result: result });
+    } catch (error) {
+      console.error("Error de serviror: ", error);
+      res.status(500).json({ error: "Error del servidor!!" });
     }
   }
 }

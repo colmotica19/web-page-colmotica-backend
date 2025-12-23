@@ -56,6 +56,7 @@ export const codeSchema = z.object({
   CONTENT: z.number().int().positive().max(999999),
   DATE: z.date().optional(),
   STATUS: z.number().int().default(1),
+  EMAIL: z.string().email().max(255),
 });
 
 /*export const addMail = z.object({

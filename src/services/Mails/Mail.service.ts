@@ -5,16 +5,23 @@ import { mCode } from "../../model/mariadb/model_mails/modelCode";
 import { mNoti } from "../../model/mariadb/model_mails/modelNoti";
 import { mManuals } from "../../model/mariadb/model_manuals/modelManuals";
 import { validateSchema } from "../../model/validations/schemas";
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import fs from "fs";
 import path from "path";
 import { sColmoticaService } from "../Colmotica/sColmotica.service";
 
 export class sMailService {
   static async sendMail(idUser: string, val: Record<string, any>) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
     try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+
+        auth: {
+          user: process.env.MAIL_FROM,
+          pass: process.env.PASS_APLICATION,
+        },
+      });
+
       const code = Math.floor(100000 + Math.random() * 900000);
       console.log("Código generado:", code);
 
@@ -23,6 +30,7 @@ export class sMailService {
         CONTENT: code,
         DATE: new Date(),
         STATUS: 1,
+        EMAIL: val.data.EMAIL,
       });
 
       if (!validate.success) {
@@ -32,13 +40,13 @@ export class sMailService {
       }
 
       await mCode.minsertVerificationCode(
-        validate.data.ID_USERS,
+        validate.data.EMAIL,
         validate.data.CONTENT
       );
 
       console.log("Código guardado en DB:", code);
 
-      const response = await resend.emails.send({
+      const response = await transporter.sendMail({
         from: `Colmotica <${process.env.MAIL_FROM}>`,
         to: val.data.EMAIL,
         subject: "Verifica tu cuenta",
@@ -61,14 +69,22 @@ export class sMailService {
   }
 
   static async sendMailNoti(emailUsuario: string) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
     try {
       const emailsNoti = await mNoti.sendNoti();
+
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+
+        auth: {
+          user: process.env.MAIL_FROM,
+          pass: process.env.PASS_APLICATION,
+        },
+      });
 
       if (!emailsNoti || emailsNoti.length === 0) return;
 
       for (const row of emailsNoti) {
-        await resend.emails.send({
+        await transporter.sendMail({
           from: `Colmotica <${process.env.MAIL_FROM}>`,
           to: row.EMAIL,
           subject: "Nuevo usuario registrado en Colmotica",
@@ -87,20 +103,40 @@ export class sMailService {
     }
   }
 
-  async verifyCode(idUser: string, code: string): Promise<boolean> {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const [row] = await mCode.mgetLastVerificationCode(idUser);
+  async verifyCode(email_code: string, code: string): Promise<boolean> {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+
+      auth: {
+        user: process.env.MAIL_FROM,
+        pass: process.env.PASS_APLICATION,
+      },
+    });
+
+    const [row] = await mCode.mgetLastVerificationCode(email_code);
     if (!row) return false;
 
-    const createdAt = new Date(row.CREATED_AT);
-    const now = new Date();
-    const diffMinutes = (now.getTime() - createdAt.getTime()) / 60000;
+    const dbDateString = row.CREATED_AT.toString();
+
+    // ⭐ PARCHE FINAL: Forzar la lectura de la fecha como local
+    // Esto remueve 'T' y 'Z'/'Z' para evitar que Node.js aplique incorrectamente
+    // la diferencia horaria al leer la fecha de la DB.
+    const dateWithoutTZ = dbDateString.replace("T", " ").replace(/\.000Z$/, "");
+    const createdAt = new Date(dateWithoutTZ);
+
+    const nowTimeMs = Date.now();
+    const createdTimeMs = createdAt.getTime();
+
+    const diffMinutes = (nowTimeMs - createdTimeMs) / 60000;
+
+    console.log("Diferencia ajustada (FINAL - debe ser < 1):", diffMinutes);
+
     if (diffMinutes > 10) return false;
 
     if (Number(row.CONTENT) !== Number(code)) return false;
 
-    await mUser.mverifyUser(idUser);
-    await mCode.mdeactivateCode(row.ID_CODE);
+    await mUser.mverifyUser(email_code);
+    await mCode.mdeactivateCode(email_code);
     const email = await mNoti.sendNoti();
     if (!email || email.length === 0) return true;
 
@@ -108,7 +144,7 @@ export class sMailService {
 
     try {
       for (const row of email) {
-        await resend.emails.send({
+        await transporter.sendMail({
           from: `Colmotica <${process.env.MAIL_FROM}>`,
           to: row.EMAIL,
           subject: "Usuario verificado en Colmotica!!",
@@ -146,8 +182,15 @@ export class sMailService {
         const pdfManualread = fs.readFileSync(pdfManual);
         const pdfManual64 = pdfManualread.toString("base64");
 
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+
+          auth: {
+            user: process.env.MAIL_FROM,
+            pass: process.env.PASS_APLICATION,
+          },
+        });
+        await transporter.sendMail({
           from: `Colmotica <${process.env.MAIL_FROM}>`,
           to: row.EMAIL,
           subject: `Tu manual ${row.NAME} ha sido aprobado`,
@@ -183,8 +226,15 @@ export class sMailService {
     try {
       console.log({ emailManual });
       for (const row of emailManual) {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+
+          auth: {
+            user: process.env.MAIL_FROM,
+            pass: process.env.PASS_APLICATION,
+          },
+        });
+        await transporter.sendMail({
           from: `Colmotica <${process.env.MAIL_FROM}>`,
           to: row.EMAIL,
           subject: `Tu manual ${row.NAME} ha sido rechazado`,
@@ -205,7 +255,14 @@ export class sMailService {
 
   static async sendCodeRecover(email: string) {
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+
+        auth: {
+          user: process.env.MAIL_FROM,
+          pass: process.env.PASS_APLICATION,
+        },
+      });
       const user = await mUser.getEmail(email);
       if (!user) return false;
 
@@ -215,7 +272,7 @@ export class sMailService {
       const idUser: string | null = await mUser.getId(email);
       if (!idUser) return false;
 
-      const response = await resend.emails.send({
+      const response = await transporter.sendMail({
         from: `Colmotica <${process.env.MAIL_FROM}>`,
         to: user.EMAIL,
         subject: "Recupera tu cuenta",
@@ -238,24 +295,28 @@ export class sMailService {
 
   static async verifyCodeRecover(email: string, code: string, newPass: string) {
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+
+        auth: {
+          user: process.env.MAIL_FROM,
+          pass: process.env.PASS_APLICATION,
+        },
+      });
       const user = await mUser.getEmail(email);
       if (!user) return false;
 
-      // Buscar el último código tipo RECUPERACION
       const [row] = await mCode.mgetLastCodeByType(
         user.ID_USERS,
         "RECUPERACION"
       );
       if (!row) return false;
 
-      // Validar que el código sea el mismo
       if (Number(row.CONTENT) !== Number(code)) {
         console.warn("Código incorrecto");
         return false;
       }
 
-      // Validar tiempo (10 min)
       const createdAt = new Date(row.CREATED_AT);
       const diffMinutes = (Date.now() - createdAt.getTime()) / 60000;
       if (diffMinutes > 10) {
@@ -263,15 +324,12 @@ export class sMailService {
         return false;
       }
 
-      // ✅ Si todo está bien, cambiar la contraseña
       const userInstance = new mUser(new sColmoticaService());
       await userInstance.mrecoverPass(email, newPass);
 
-      // Desactivar el código
       await mCode.mdeactivateCode(row.ID_CODE);
 
-      // Avisar al usuario
-      await resend.emails.send({
+      await transporter.sendMail({
         from: `Colmotica <${process.env.MAIL_FROM}>`,
         to: user.EMAIL,
         subject: "Contraseña cambiada correctamente",
