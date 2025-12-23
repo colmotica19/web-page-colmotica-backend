@@ -12,8 +12,7 @@ export class mManuals {
       NAME: input.NAME,
     };
 
-    const query =
-      "INSERT INTO MANUALS (ID_MANUALS, ID_ROL, NAME) VALUES (?,?,?)";
+    const query = "INSERT INTO MANUALS (ID_MANUALS, ID_ROL, NAME) VALUES (?,?,?)";
     const params = [newManual.ID_MANUALS, newManual.ID_ROL, newManual.NAME];
     const resultFinal = executeQuery(query, params);
 
@@ -61,8 +60,7 @@ export class mManuals {
 
       console.log(result2);
 
-      const queryLog =
-        "INSERT INTO LOG_MANUAL (ID_LOG, ID_USERS, ID_MANUALS) VALUE (?,?,?)";
+      const queryLog = "INSERT INTO LOG_MANUAL (ID_LOG, ID_USERS, ID_MANUALS) VALUE (?,?,?)";
       const paramsLog = [randomUUID(), idUser, idManual];
 
       const resultFinal = executeQuery(queryLog, paramsLog);
@@ -103,13 +101,34 @@ export class mManuals {
   }
 
   static async mgetpendingManuals() {
-    const query = `SELECT MU.ID_USERS, MU.ID_MANUALS, U.EMAIL, M.NAME, MU.STATE
+    const query = `SELECT MU.ID_USERS, MU.ID_MANUALS, U.EMAIL, M.NAME, MU.STATE, MU.DATE_REQ
           FROM MANUALS_VS_USERS MU
           JOIN USERS U ON MU.ID_USERS = U.ID_USERS
           JOIN MANUALS M ON MU.ID_MANUALS = M.ID_MANUALS
           WHERE MU.STATE = 'PENDIENTE'`;
 
     const resultFinal = executeQuery(query);
+    return resultFinal;
+  }
+
+  static async mgetpendingReqByUser(EMAIL: string) {
+    const query = `
+      SELECT 
+        MU.ID_MANUALS_VS_USERS,
+        MU.ID_USERS, 
+        MU.ID_MANUALS, 
+        U.EMAIL, 
+        M.NAME, 
+        MU.STATE,
+        MU.DATE_REQ
+      FROM MANUALS_VS_USERS MU
+      JOIN USERS U ON MU.ID_USERS = U.ID_USERS
+      JOIN MANUALS M ON MU.ID_MANUALS = M.ID_MANUALS
+      WHERE MU.STATE = 'PENDIENTE'
+        AND U.EMAIL = ?
+  `;
+
+    const resultFinal = await executeQuery(query, [EMAIL]);
     return resultFinal;
   }
 

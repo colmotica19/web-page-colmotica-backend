@@ -7,7 +7,6 @@ import "dotenv/config";
 import { sMailService } from "../../services/Mails/Mail.service";
 import { sColmoticaService } from "../../services/Colmotica/sColmotica.service";
 import { fixBigInt } from "../../util/utils";
-import { auth } from "../../auth/middleware/auth";
 
 export class controllerManuals {
   colmoticaService: sColmoticaService;
@@ -22,26 +21,15 @@ export class controllerManuals {
     const router = Router();
 
     // ✅ Todas estas rutas quedan protegidas con `auth`
-    router.post("/users/manuals", auth, controllerManuals.caggManual);
-    router.get("/users/manuals", auth, controllerManuals.cgetManuals);
+    router.post("/users/manuals", controllerManuals.caggManual);
+    router.get("/users/manuals", controllerManuals.cgetManuals);
 
-    router.post("/manuals/req", auth, this.cpostManualRequest.bind(this));
-    router.get(
-      "/manuals/req/pendiente",
-      auth,
-      this.cgetpendingManuals.bind(this)
-    );
-    router.get("/manuals/req/total", auth, this.cgetNumberReq.bind(this));
-    router.patch(
-      "/manuals/req/aprobado",
-      auth,
-      this.cpatchApproveManual.bind(this)
-    );
-    router.patch(
-      "/manuals/req/rechazado",
-      auth,
-      this.cpatchRefusedManual.bind(this)
-    );
+    router.post("/manuals/req", this.cpostManualRequest.bind(this));
+    router.get("/manuals/req/pendiente", this.cgetpendingManuals.bind(this));
+    router.post("/manuals/req/pendienteByUser", this.cgetpendingReqByUser.bind(this));
+    router.get("/manuals/req/total", this.cgetNumberReq.bind(this));
+    router.patch("/manuals/req/aprobado", this.cpatchApproveManual.bind(this));
+    router.patch("/manuals/req/rechazado", this.cpatchRefusedManual.bind(this));
 
     return router;
   }
@@ -79,13 +67,9 @@ export class controllerManuals {
     try {
       const result = await mManuals.mreqManual(ID_MANUALS, ID_USERS);
       if (result !== null) {
-        res
-          .status(201)
-          .json({ message: "Solicitud enviada", result: fixBigInt(result) });
+        res.status(201).json({ message: "Solicitud enviada", result: fixBigInt(result) });
       } else {
-        res
-          .status(429)
-          .json({ error: "El usuario llego al limite de peticiones..." });
+        res.status(429).json({ error: "El usuario llego al limite de peticiones..." });
       }
     } catch (error) {
       console.error(error);
@@ -97,11 +81,7 @@ export class controllerManuals {
     const { ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS } = req.body;
 
     try {
-      const result: any = await mManuals.mapprovedManual(
-        ID_MANUALS_VS_USERS,
-        ID_MANUALS,
-        ID_USERS
-      );
+      const result: any = await mManuals.mapprovedManual(ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS);
 
       if (result.affectedRows === 0) {
         return res.status(404).json({
@@ -110,16 +90,9 @@ export class controllerManuals {
         });
       }
 
-      const info: any[] = await mManuals.mgetUserManualInfo(
-        ID_USERS,
-        ID_MANUALS
-      );
+      const info: any[] = await mManuals.mgetUserManualInfo(ID_USERS, ID_MANUALS);
       if (info.length > 0) {
-        await this.mailService.approvedManual(
-          ID_MANUALS_VS_USERS,
-          ID_USERS,
-          ID_MANUALS
-        );
+        await this.mailService.approvedManual(ID_MANUALS_VS_USERS, ID_USERS, ID_MANUALS);
       }
 
       res.status(200).json({
@@ -139,11 +112,7 @@ export class controllerManuals {
     const { ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS } = req.body;
 
     try {
-      const result: any = await mManuals.mrefusedManual(
-        ID_MANUALS_VS_USERS,
-        ID_MANUALS,
-        ID_USERS
-      );
+      const result: any = await mManuals.mrefusedManual(ID_MANUALS_VS_USERS, ID_MANUALS, ID_USERS);
 
       // Si no se afectó ninguna fila, no existe la solicitud
       if (result.affectedRows === 0) {
@@ -154,16 +123,9 @@ export class controllerManuals {
       }
 
       // Obtener info del usuario y manual para enviar el correo
-      const info: any[] = await mManuals.mgetUserManualInfo(
-        ID_USERS,
-        ID_MANUALS
-      );
+      const info: any[] = await mManuals.mgetUserManualInfo(ID_USERS, ID_MANUALS);
       if (info.length > 0) {
-        await this.mailService.refusedManual(
-          ID_MANUALS_VS_USERS,
-          ID_USERS,
-          ID_MANUALS
-        );
+        await this.mailService.refusedManual(ID_MANUALS_VS_USERS, ID_USERS, ID_MANUALS);
       }
 
       res.status(200).json({
@@ -185,9 +147,19 @@ export class controllerManuals {
       res.status(200).json({ success: true, result: result });
     } catch (error) {
       console.error("Error de serviror: ", error);
-      res
-        .status(500)
-        .json({ error: "Error del servidor!! (cgetpendingManuals)" });
+      res.status(500).json({ error: "Error del servidor!! (cgetpendingManuals)" });
+    }
+  }
+
+  async cgetpendingReqByUser(req: Request, res: Response) {
+    const { EMAIL } = req.body;
+
+    try {
+      const result = await mManuals.mgetpendingReqByUser(EMAIL);
+      res.status(200).json({ success: true, result: result });
+    } catch (error) {
+      console.error("Error de serviror: ", error);
+      res.status(500).json({ error: "Error del servidor!! (cgetpendingManuals)" });
     }
   }
 

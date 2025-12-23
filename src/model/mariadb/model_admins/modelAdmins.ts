@@ -15,29 +15,38 @@ export class mAdmins {
       TEL: null,
       NAME: input.NAME,
       PASS_HASH: input.PASS_HASH,
-      VERIFED: null,
+      VERIFED: 1,
     };
 
     const hash = await bcrypt.hash(newAdmin.PASS_HASH, 12);
 
-    const query =
-      "INSERT INTO USERS (ID_USERS, ID_ROL, EMAIL, PAIS, TEL, NAME, PASS_HASH, VERIFIED)VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-    const params = [
-      newAdmin.ID_USERS,
-      newAdmin.ID_ROL,
-      newAdmin.EMAIL,
-      newAdmin.PAIS,
-      newAdmin.TEL,
-      newAdmin.NAME,
-      hash,
-      newAdmin.VERIFED,
-    ];
+    const queryVal = "SELECT * FROM USERS WHERE EMAIL = ?";
+    const paramsVal = [newAdmin.EMAIL];
 
-    const resultFinal = executeQuery(query, params);
+    const resultVal = await executeQuery(queryVal, paramsVal);
 
-    console.log({ resultFinal });
+    if (resultVal.length !== 0) {
+      return { error: "Este administrador ya esta registrado..." };
+    } else {
+      const query =
+        "INSERT INTO USERS (ID_USERS, ID_ROL, EMAIL, PAIS, TEL, NAME, PASS_HASH, VERIFIED)VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+      const params = [
+        newAdmin.ID_USERS,
+        newAdmin.ID_ROL,
+        newAdmin.EMAIL,
+        newAdmin.PAIS,
+        newAdmin.TEL,
+        newAdmin.NAME,
+        hash,
+        newAdmin.VERIFED,
+      ];
 
-    return newAdmin;
+      const resultFinal = executeQuery(query, params);
+
+      console.log({ resultFinal });
+
+      return newAdmin;
+    }
   }
 
   static async mgetAdmins() {

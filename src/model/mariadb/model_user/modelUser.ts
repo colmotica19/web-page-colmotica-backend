@@ -97,15 +97,8 @@ export class mUser {
         NAME: input.NAME ?? row.NAME,
       };
 
-      const upQuery =
-        "UPDATE USERS SET EMAIL = ?, PAIS = ?, TEL = ?, NAME = ? WHERE ID_USERS = ?";
-      const upParams = [
-        registroUpdate.EMAIL,
-        registroUpdate.PAIS,
-        registroUpdate.TEL,
-        registroUpdate.NAME,
-        idUser,
-      ];
+      const upQuery = "UPDATE USERS SET EMAIL = ?, PAIS = ?, TEL = ?, NAME = ? WHERE ID_USERS = ?";
+      const upParams = [registroUpdate.EMAIL, registroUpdate.PAIS, registroUpdate.TEL, registroUpdate.NAME, idUser];
       await executeQuery(upQuery, upParams);
 
       const finalQuery = "SELECT * FROM USERS WHERE ID_USERS = ?";
@@ -184,30 +177,73 @@ export class mUser {
   }
 
   async mrecoverPass(email: string, pass: string) {
-    const newPass = await this.colmoticaService.createHash(pass);
-    const query = "UPDATE USERS SET PASS_HASH = ? WHERE EMAIL = ? ";
-    const params = [newPass, email];
+    try {
+      console.log(true, 1);
+      // 1️⃣ Obtener el ID del usuario a partir del correo
+      const sqlUser = `
+      SELECT ID_USERS 
+      FROM USERS 
+      WHERE EMAIL = ? 
+      LIMIT 1
+    `;
+      const userResult = await executeQuery(sqlUser, [email]);
+      if (!userResult || userResult.length === 0) {
+        throw new Error("Usuario no encontrado");
+      }
 
-    const resultFinal = await executeQuery(query, params);
-    return resultFinal;
+      // 3️⃣ Cambiar la contraseña (ya verificada)
+      const newPass = await this.colmoticaService.createHash(pass);
+      const sqlUpdate = `
+      UPDATE USERS
+      SET PASS_HASH = ?
+      WHERE EMAIL = ?
+    `;
+      const updateResult = await executeQuery(sqlUpdate, [newPass, email]);
+
+      return updateResult;
+    } catch (error) {
+      console.error("❌ Error en mrecoverPass:", error);
+      throw error;
+    }
   }
 
-  static async mGetById(ID_USERS: number) {
+  static async mGetById(ID_USERS: string) {
     try {
-      const [rows]: any = `SELECT ID_USERS, EMAIL, PASS_HASH 
-         FROM users 
-         WHERE ID_USERS = ? 
-         LIMIT 1`;
+      const sql = `
+      SELECT 
+        ID_USERS,
+        ID_ROL,
+        EMAIL,
+        NAME,
+        PAIS,
+        TEL,
+        PASS_HASH,
+        VERIFIED
+      FROM USERS
+      WHERE ID_USERS = ?
+      LIMIT 1
+    `;
+
       const params = [ID_USERS];
-
-      const result = await executeQuery(rows, params);
-
-      console.log(result);
-
-      return rows && rows.length > 0 ? rows[0] : null;
+      const result = await executeQuery(sql, params);
+      return result && result.length > 0 ? result[0] : null;
     } catch (error) {
       console.error("Error en mGetById:", error);
       throw error;
     }
+  }
+
+  static async mtypeUser(email: string) {
+    const query = `SELECT ID_ROL FROM USERS WHERE EMAIL = ?`;
+    const result = await executeQuery(query, [email]);
+    return result;
+  }
+
+  static async mrequestManuals(ID_MANUALS: string, ID_USERS: string) {
+    const query = `SELECT COUNT(*) AS total 
+    FROM MANUALS_VS_USERS 
+    WHERE ID_MANUALS = ? AND ID_USERS = ? AND STATE = 'PENDIENTE';`;
+    const result = await executeQuery(query, [ID_MANUALS, ID_USERS]);
+    return result;
   }
 }

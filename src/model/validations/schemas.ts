@@ -78,6 +78,7 @@ export const adminSchema = z.object({
     .regex(/[a-z]/, "Debe contener al menos una minúscula")
     .regex(/[0-9]/, "Debe contener al menos un número"),
 });
+
 export function validateUser(obj: object) {
   return userSchema.safeParse(obj);
 }
