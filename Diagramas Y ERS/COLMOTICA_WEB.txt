@@ -1,0 +1,225 @@
+-- phpMyAdmin SQL Dump
+-- version 5.2.2
+-- https://www.phpmyadmin.net/
+--
+-- Servidor: mariadb2
+-- Tiempo de generación: 23-12-2025 a las 21:27:39
+-- Versión del servidor: 12.0.2-MariaDB-ubu2404
+-- Versión de PHP: 8.2.29
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Base de datos: `COLMOTICA_WEB`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `CODE_VERIFICATION`
+--
+
+CREATE TABLE `CODE_VERIFICATION` (
+  `ID_CODE` varchar(255) NOT NULL,
+  `ID_USERS` varchar(255) NOT NULL,
+  `CONTENT` int(6) DEFAULT NULL,
+  `CREATED_AT` timestamp NULL DEFAULT current_timestamp(),
+  `STATUS` tinyint(1) DEFAULT 1,
+  `TYPE` enum('RECUPERACION','VERIFICACION') DEFAULT NULL,
+  `EMAIL` varchar(255) DEFAULT NULL,
+  `USAGE_COUNT` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+--
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `LOG_MANUAL`
+--
+
+CREATE TABLE `LOG_MANUAL` (
+  `ID_LOG` varchar(255) NOT NULL,
+  `ID_USERS` varchar(255) NOT NULL,
+  `ID_MANUALS` varchar(255) NOT NULL,
+  `CREATED_AT` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+--
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `MANUALS`
+--
+
+CREATE TABLE `MANUALS` (
+  `ID_MANUALS` varchar(255) NOT NULL,
+  `ID_ROL` int(5) DEFAULT NULL,
+  `NAME` varchar(255) DEFAULT NULL,
+  `CREATED_AT` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+--
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `MANUALS_VS_USERS`
+--
+
+CREATE TABLE `MANUALS_VS_USERS` (
+  `ID_MANUALS_VS_USERS` bigint(255) NOT NULL,
+  `ID_MANUALS` varchar(255) DEFAULT NULL,
+  `ID_USERS` varchar(255) DEFAULT NULL,
+  `STATE` enum('APROVADO','PENDIENTE','RECHAZADO') DEFAULT NULL,
+  `DATE_REQ` timestamp NULL DEFAULT current_timestamp(),
+  `DATE_APPROVED` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `ROL`
+--
+
+CREATE TABLE `ROL` (
+  `ID_ROL` int(5) NOT NULL,
+  `TYPE` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+--
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `USERS`
+--
+
+CREATE TABLE `USERS` (
+  `ID_USERS` varchar(255) NOT NULL,
+  `ID_ROL` int(5) DEFAULT 10002,
+  `EMAIL` varchar(255) DEFAULT NULL,
+  `PAIS` varchar(255) DEFAULT NULL,
+  `TEL` varchar(20) DEFAULT NULL,
+  `NAME` varchar(255) DEFAULT NULL,
+  `PASS_HASH` varchar(255) DEFAULT NULL,
+  `VERIFIED` tinyint(1) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+--
+
+--
+-- Índices para tablas volcadas
+--
+
+--
+-- Indices de la tabla `CODE_VERIFICATION`
+--
+ALTER TABLE `CODE_VERIFICATION`
+  ADD PRIMARY KEY (`ID_CODE`),
+  ADD KEY `ID_USERS` (`ID_USERS`);
+
+--
+-- Indices de la tabla `LOG_MANUAL`
+--
+ALTER TABLE `LOG_MANUAL`
+  ADD PRIMARY KEY (`ID_LOG`),
+  ADD KEY `ID_MANUALS` (`ID_MANUALS`);
+
+--
+-- Indices de la tabla `MANUALS`
+--
+ALTER TABLE `MANUALS`
+  ADD PRIMARY KEY (`ID_MANUALS`),
+  ADD KEY `ID_ROL` (`ID_ROL`);
+
+--
+-- Indices de la tabla `MANUALS_VS_USERS`
+--
+ALTER TABLE `MANUALS_VS_USERS`
+  ADD PRIMARY KEY (`ID_MANUALS_VS_USERS`),
+  ADD KEY `ID_MANUALS` (`ID_MANUALS`),
+  ADD KEY `ID_USERS` (`ID_USERS`);
+
+--
+-- Indices de la tabla `ROL`
+--
+ALTER TABLE `ROL`
+  ADD PRIMARY KEY (`ID_ROL`);
+
+--
+-- Indices de la tabla `USERS`
+--
+ALTER TABLE `USERS`
+  ADD PRIMARY KEY (`ID_USERS`),
+  ADD KEY `COD_R` (`ID_ROL`);
+
+--
+-- AUTO_INCREMENT de las tablas volcadas
+--
+
+--
+-- AUTO_INCREMENT de la tabla `MANUALS_VS_USERS`
+--
+ALTER TABLE `MANUALS_VS_USERS`
+  MODIFY `ID_MANUALS_VS_USERS` bigint(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+
+--
+-- Restricciones para tablas volcadas
+--
+
+--
+-- Filtros para la tabla `CODE_VERIFICATION`
+--
+ALTER TABLE `CODE_VERIFICATION`
+  ADD CONSTRAINT `CODE_VERIFICATION_ibfk_1` FOREIGN KEY (`ID_USERS`) REFERENCES `USERS` (`ID_USERS`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `MANUALS`
+--
+ALTER TABLE `MANUALS`
+  ADD CONSTRAINT `MANUALS_ibfk_1` FOREIGN KEY (`ID_ROL`) REFERENCES `ROL` (`ID_ROL`);
+
+--
+-- Filtros para la tabla `MANUALS_VS_USERS`
+--
+ALTER TABLE `MANUALS_VS_USERS`
+  ADD CONSTRAINT `MANUALS_VS_USERS_ibfk_1` FOREIGN KEY (`ID_MANUALS`) REFERENCES `MANUALS` (`ID_MANUALS`),
+  ADD CONSTRAINT `MANUALS_VS_USERS_ibfk_2` FOREIGN KEY (`ID_USERS`) REFERENCES `USERS` (`ID_USERS`);
+
+--
+-- Filtros para la tabla `USERS`
+--
+ALTER TABLE `USERS`
+  ADD CONSTRAINT `USERS_ibfk_1` FOREIGN KEY (`ID_ROL`) REFERENCES `ROL` (`ID_ROL`);
+
+DELIMITER $$
+--
+-- Eventos
+--
+CREATE DEFINER=`JULIAN1044`@`%` EVENT `expire_codes` ON SCHEDULE EVERY 10 SECOND STARTS '2025-10-04 11:35:02' ON COMPLETION NOT PRESERVE ENABLE DO DELETE T1, T2
+FROM USERS T1 
+JOIN CODE_VERIFICATION T2 ON T1.ID_USERS = T2.ID_USERS
+WHERE T2.STATUS = 1 
+  AND T2.TYPE = 'VERIFICACION'
+  AND T2.CREATED_AT < NOW() - INTERVAL 10 MINUTE$$
+
+CREATE DEFINER=`JULIAN1044`@`%` EVENT `delete_codeRecover` ON SCHEDULE EVERY 10 MINUTE STARTS '2025-11-29 11:38:11' ON COMPLETION NOT PRESERVE ENABLE DO DELETE FROM CODE_VERIFICATION
+    WHERE
+        TYPE = 'RECUPERACION' AND STATUS = 1 AND
+        CREATED_AT < NOW() - INTERVAL 10 MINUTE$$
+
+DELIMITER ;
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
